@@ -55,5 +55,26 @@ services:
     networks:
       - app
 
+  # Servicio de Reportes
+  reportes:
+    build: ./reportes
+    ports:
+      - "8001:8000"  # Puerto diferente para evitar conflictos
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/alpespartners_dijs
+      - PULSAR_ADDRESS=pulsar
+      - ENVIRONMENT=development
+      - RECREATE_DB=false
+      - LOG_LEVEL=INFO
+    depends_on:
+      - postgres
+      - pulsar
+      - contratos  
+    volumes:
+      - ./reportes:/app
+    command: python run_flask.py
+    networks:
+      - app
+
 volumes:
   postgres_data:
