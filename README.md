@@ -106,11 +106,11 @@ Cada microservicio puede ejecutarse independientemente:
 ```bash
 # Solo el microservicio de reportes
 cd reportes/
-docker-compose up --build
+docker-compose up --build -d
 
 # Solo el microservicio principal
 cd alpes-partners-dijs/
-docker-compose up --build
+docker-compose up --build -d
 ```
 
 ## Flujo de Eventos

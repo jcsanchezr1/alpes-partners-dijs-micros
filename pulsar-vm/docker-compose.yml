@@ -1,0 +1,28 @@
+version: '3.8'
+
+networks:
+  app:
+    driver: bridge
+
+services:
+  # Apache Pulsar Standalone
+  pulsar:
+    image: apachepulsar/pulsar:latest
+    container_name: pulsar
+    command: ["bin/pulsar", "standalone"]
+    ports:
+      - "6650:6650"  # Puerto para clientes Pulsar
+      - "8080:8080"  # Puerto para la API REST de Pulsar
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/admin/v2/brokers/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - app
+    volumes:
+      - pulsar_data:/pulsar/data
+
+volumes:
+  pulsar_data:
