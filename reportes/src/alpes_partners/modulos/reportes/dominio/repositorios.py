@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from typing import List, Optional
 
-from reportes.seedwork.dominio.repositorios import Repositorio
+from alpes_partners.seedwork.dominio.repositorios import Repositorio
 from .entidades import Reporte
 from .objetos_valor import EstadoReporte, TipoReporte
 

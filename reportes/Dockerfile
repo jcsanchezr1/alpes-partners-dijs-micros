@@ -20,12 +20,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copiar el código fuente
 COPY src/ ./src/
 COPY run_flask.py .
-COPY run_pulsar_consumer.py .
-
-# Crear usuario no-root
-RUN useradd --create-home --shell /bin/bash reportes
-RUN chown -R reportes:reportes /app
-USER reportes
 
 # Exponer el puerto
 EXPOSE 8001

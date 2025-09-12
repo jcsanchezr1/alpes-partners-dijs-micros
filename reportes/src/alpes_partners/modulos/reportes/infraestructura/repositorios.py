@@ -10,15 +10,15 @@ from sqlalchemy import and_, or_
 
 logger = logging.getLogger(__name__)
 
-from reportes.modulos.reportes.dominio.repositorios import RepositorioReportes
-from reportes.modulos.reportes.dominio.entidades import Reporte
-from reportes.modulos.reportes.dominio.objetos_valor import (
+from alpes_partners.modulos.reportes.dominio.repositorios import RepositorioReportes
+from alpes_partners.modulos.reportes.dominio.entidades import Reporte
+from alpes_partners.modulos.reportes.dominio.objetos_valor import (
     TipoReporte, EstadoReporte, MetadatosReporte, ConfiguracionReporte
 )
 from .schema.reportes import Reportes as ReporteSchema, EstadoReporteEnum, TipoReporteEnum
 
 # Importar db como en el tutorial
-from reportes.seedwork.infraestructura.database import db
+from alpes_partners.seedwork.infraestructura.database import db
 
 
 class RepositorioReportesSQLAlchemy(RepositorioReportes):

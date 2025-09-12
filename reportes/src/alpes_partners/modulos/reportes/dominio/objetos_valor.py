@@ -2,7 +2,7 @@ from enum import Enum
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
-from reportes.seedwork.dominio.objetos_valor import ObjetoValor
+from alpes_partners.seedwork.dominio.objetos_valor import ObjetoValor
 
 
 class EstadoReporte(Enum):

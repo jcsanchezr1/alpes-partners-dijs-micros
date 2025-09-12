@@ -1,4 +1,4 @@
-from reportes.seedwork.aplicacion.comandos import ComandoHandler
+from alpes_partners.seedwork.aplicacion.comandos import ComandoHandler
 from ...infraestructura.fabricas import FabricaRepositorioReportes
 from ...dominio.fabricas import FabricaReportes
 

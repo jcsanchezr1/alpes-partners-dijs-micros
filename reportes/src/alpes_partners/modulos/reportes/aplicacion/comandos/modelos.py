@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Optional, Dict, Any
-from reportes.seedwork.aplicacion.comandos import Comando
+from alpes_partners.seedwork.aplicacion.comandos import Comando
 from dataclasses import dataclass
 
 

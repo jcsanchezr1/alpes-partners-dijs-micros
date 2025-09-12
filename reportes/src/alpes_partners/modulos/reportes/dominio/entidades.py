@@ -1,8 +1,8 @@
 from datetime import datetime
 from typing import Optional, Dict, Any
 
-from reportes.seedwork.dominio.entidades import AgregacionRaiz
-from reportes.seedwork.dominio.excepciones import ExcepcionReglaDeNegocio, ExcepcionEstadoInvalido
+from alpes_partners.seedwork.dominio.entidades import AgregacionRaiz
+from alpes_partners.seedwork.dominio.excepciones import ExcepcionReglaDeNegocio, ExcepcionEstadoInvalido
 
 from .objetos_valor import EstadoReporte, TipoReporte, MetadatosReporte, ConfiguracionReporte
 from .eventos import ReporteCreado

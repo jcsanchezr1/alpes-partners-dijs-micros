@@ -1,8 +1,8 @@
 from datetime import datetime
 from typing import Dict, Any
 
-from reportes.seedwork.dominio.repositorios import Mapeador
-from reportes.seedwork.dominio.entidades import AgregacionRaiz
+from alpes_partners.seedwork.dominio.repositorios import Mapeador
+from alpes_partners.seedwork.dominio.entidades import AgregacionRaiz
 
 from .dto import CrearReporteDTO, ReporteDTO
 from ..dominio.entidades import Reporte

@@ -1,12 +1,12 @@
 from typing import Optional, Dict, Any
 from dataclasses import dataclass
-from reportes.seedwork.aplicacion.comandos import Comando
+from alpes_partners.seedwork.aplicacion.comandos import Comando
 from ..dto import CrearReporteDTO
 from .base import RegistrarReporteBaseHandler
-from reportes.seedwork.aplicacion.comandos import ejecutar_commando as comando
+from alpes_partners.seedwork.aplicacion.comandos import ejecutar_commando as comando
 
 from ...dominio.entidades import Reporte
-from reportes.seedwork.infraestructura.uow import UnidadTrabajoPuerto
+from alpes_partners.seedwork.infraestructura.uow import UnidadTrabajoPuerto
 from ..mapeadores import MapeadorReporte
 from ...infraestructura.repositorios import RepositorioReportesSQLAlchemy
 from ...dominio.excepciones import ExcepcionReporteYaExiste

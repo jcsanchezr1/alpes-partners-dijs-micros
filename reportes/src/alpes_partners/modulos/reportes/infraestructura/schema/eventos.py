@@ -3,7 +3,7 @@ Schema de eventos Pulsar para contratos - usado por reportes para consumir event
 """
 
 from pulsar.schema import Record, String, Float, Array, Long
-from reportes.seedwork.infraestructura.schema.v1.mensajes import EventoBase
+from alpes_partners.seedwork.infraestructura.schema.v1.mensajes import EventoBase
 
 
 class ContratoCreadoPayload(Record):

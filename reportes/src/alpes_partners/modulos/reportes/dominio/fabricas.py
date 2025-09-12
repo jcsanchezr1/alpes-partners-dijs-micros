@@ -8,9 +8,9 @@ from dataclasses import dataclass
 from typing import Any, Dict
 from datetime import datetime
 
-from reportes.seedwork.dominio.repositorios import Mapeador
-from reportes.seedwork.dominio.entidades import Entidad
-from reportes.modulos.reportes.aplicacion.dto import CrearReporteDTO
+from alpes_partners.seedwork.dominio.repositorios import Mapeador
+from alpes_partners.seedwork.dominio.entidades import Entidad
+from alpes_partners.modulos.reportes.aplicacion.dto import CrearReporteDTO
 
 from .entidades import Reporte
 from .objetos_valor import TipoReporte, MetadatosReporte, ConfiguracionReporte

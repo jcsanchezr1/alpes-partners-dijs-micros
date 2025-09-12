@@ -17,8 +17,8 @@ src_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
 
-from reportes.seedwork.dominio.repositorios import Repositorio
-from reportes.modulos.reportes.dominio.repositorios import RepositorioReportes
+from alpes_partners.seedwork.dominio.repositorios import Repositorio
+from alpes_partners.modulos.reportes.dominio.repositorios import RepositorioReportes
 
 from .repositorios import RepositorioReportesSQLAlchemy
 from .excepciones import ExcepcionFabricaReportes

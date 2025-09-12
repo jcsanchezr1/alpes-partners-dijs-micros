@@ -1,6 +1,6 @@
 """Excepciones específicas del dominio de reportes."""
 
-from reportes.seedwork.dominio.excepciones import ExcepcionDominio
+from alpes_partners.seedwork.dominio.excepciones import ExcepcionDominio
 
 
 class ExcepcionReporte(ExcepcionDominio):

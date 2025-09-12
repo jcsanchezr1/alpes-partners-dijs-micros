@@ -16,12 +16,12 @@ import pulsar
 import _pulsar
 from pulsar.schema import AvroSchema
 
-from reportes.config.app import crear_app_minima
-from reportes.seedwork.infraestructura import utils
-from reportes.modulos.reportes.aplicacion.comandos.crear_reporte import RegistrarReporte, ejecutar_comando_registrar_reporte
+from alpes_partners.config.app import crear_app_minima
+from alpes_partners.seedwork.infraestructura import utils
+from alpes_partners.modulos.reportes.aplicacion.comandos.crear_reporte import RegistrarReporte, ejecutar_comando_registrar_reporte
 
 # Esquema de eventos de contrato
-from reportes.modulos.reportes.infraestructura.schema.eventos import EventoContratoCreado
+from alpes_partners.modulos.reportes.infraestructura.schema.eventos import EventoContratoCreado
 
 # Crear instancia de aplicación Flask para el contexto
 app = crear_app_minima()

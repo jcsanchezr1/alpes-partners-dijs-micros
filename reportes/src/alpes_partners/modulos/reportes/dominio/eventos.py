@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Dict, Any, Optional
 
-from reportes.seedwork.dominio.eventos import EventoDominio, EventoIntegracion
+from alpes_partners.seedwork.dominio.eventos import EventoDominio, EventoIntegracion
 from .objetos_valor import TipoReporte, EstadoReporte
 
 

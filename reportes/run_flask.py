@@ -13,8 +13,8 @@ src_path = os.path.join(os.path.dirname(__file__), 'src')
 sys.path.insert(0, src_path)
 
 import logging
-from reportes.config.settings import settings
-from reportes.modulos.reportes.infraestructura.consumidores import suscribirse_a_eventos_contratos_desde_reportes
+from alpes_partners.config.settings import settings
+from alpes_partners.modulos.reportes.infraestructura.consumidores import suscribirse_a_eventos_contratos_desde_reportes
 
 # Configurar logging
 logging.basicConfig(

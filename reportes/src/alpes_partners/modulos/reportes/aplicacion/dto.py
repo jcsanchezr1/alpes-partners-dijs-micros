@@ -2,7 +2,7 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 from pydantic import Field
 
-from reportes.seedwork.aplicacion.dto import DTO
+from alpes_partners.seedwork.aplicacion.dto import DTO
 
 
 class CrearReporteDTO(DTO):
