@@ -142,9 +142,9 @@ docker-compose up --build -d
 Ambos microservicios siguen la misma estructura DDD:
 
 ```
-src/
-└── {microservicio}/
-    ├── api/                    # Capa de presentación
+src/a
+└── alpes_partners/
+    ├── api/                    # Capa de presentación (solo para pruebas)
     ├── config/                 # Configuración
     ├── modulos/
     │   └── {modulo}/
