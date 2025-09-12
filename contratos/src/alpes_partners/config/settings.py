@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     
     # API
     api_host: str = "0.0.0.0"
-    api_port: int = 8000
+    api_port: int = 8080
     
     # Eventos
     eventos_topico_contratos: str = "eventos-contratos"

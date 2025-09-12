@@ -40,7 +40,7 @@ services:
   contratos:
     build: ./contratos
     ports:
-      - "8000:8000"
+      - "8000:8080"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/alpespartners_dijs
       - PULSAR_ADDRESS=pulsar
@@ -59,7 +59,7 @@ services:
   reportes:
     build: ./reportes
     ports:
-      - "8001:8000"  # Puerto diferente para evitar conflictos
+      - "8001:8080"  # Puerto diferente para evitar conflictos
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/alpespartners_dijs
       - PULSAR_ADDRESS=pulsar

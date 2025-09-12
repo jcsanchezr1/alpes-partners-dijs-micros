@@ -22,7 +22,7 @@ COPY src/ ./src/
 COPY run_flask.py .
 
 # Exponer el puerto
-EXPOSE 8001
+EXPOSE 8080
 
 # Variables de entorno por defecto
 ENV PYTHONPATH=/app/src
