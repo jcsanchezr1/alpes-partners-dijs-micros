@@ -158,3 +158,12 @@ src/
         └── presentacion/
 ```
 
+## Despliegue en GCP
+
+1. Ejecutar el `pulsar-vm/create-vm.sh` para crear la VM en GCP
+Nota: Si generar error de permisos correr `chmod +x create-vm.sh`
+
+2. Ejecutar el `pulsar-vm/startup-script.sh` para instalar pulsar y levantarlo con docker
+Nota: Si generar error de permisos correr `chmod +x startup-script.sh`
+
+3. Antes de desplegar los microservicios, cambiar la variable de entorno `PULSAR_ADDRESS` por la IP externa de la VM
