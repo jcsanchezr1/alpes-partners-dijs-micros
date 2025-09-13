@@ -160,6 +160,8 @@ src/a
 
 ## Despliegue en GCP
 
+### Despliegue Pulsar en VM
+
 1. Ejecutar el `pulsar-vm/create-vm.sh` para crear la VM en GCP
 Nota: Si generar error de permisos correr `chmod +x create-vm.sh`
 
@@ -173,6 +175,53 @@ Nota: Si generar error de permisos correr `chmod +x startup-script.sh`
 Se incluye un script independiente para enviar eventos de contrato creado directamente a Pulsar.
 
 ### Archivo: `enviar_evento_pulsar.py`
+
+### Despliegue Microservicios en Cloud Run
+
+1. Crear la Base de datos en al **Cloud SQL** en la cuenta de **GCP**.
+
+2. Genera la imagen Docker del microservicio utilizando el siguiente comando:
+```bash
+docker build -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/contratos:1.0 .
+docker build -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/reportes:1.0 .
+```
+
+Para arquitectura amd64
+```bash
+docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/contratos:1.0 .
+docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/reportes:1.0 .
+```
+
+3. Subir la imagen al **Artifactory Registry** creado en la cuenta de **GCP** con el siguiente comando:
+```bash
+docker push us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/contratos:1.0
+docker push us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/reportes:1.0
+```
+
+4. Desplegar los servicio en Cloud Run
+Microservicio Contratos
+```bash
+gcloud run deploy contratos-ms \
+    --image us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/contratos:1.0 \
+    --region us-central1 \
+    --set-env-vars DATABASE_URL="postgresql://postgres:passwordDB10@IP_DB:5432/postgres",PULSAR_ADDRESS="IP_VM",RECREATE_DB=false\
+    --memory 16Gi \
+    --cpu 4 \
+    --min-instances 1 \
+    --max-instances 1
+```
+
+Microservicio Reportes
+```bash
+gcloud run deploy reportes-ms \
+    --image us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/reportes:1.0 \
+    --region us-central1 \
+    --set-env-vars DATABASE_URL="postgresql://postgres:passwordDB10@IP_DB:5432/postgres",PULSAR_ADDRESS="IP_VM",RECREATE_DB=false\
+    --memory 16Gi \
+    --cpu 4 \
+    --min-instances 1 \
+    --max-instances 1
+```
 
 ### Requisitos
 
