@@ -40,7 +40,7 @@ services:
   influencers:
     build: ./influencers
     ports:
-      - "8001:8080"
+      - "8000:8080"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/alpespartners_dijs
       - PULSAR_ADDRESS=pulsar
@@ -60,7 +60,7 @@ services:
   campanas:
     build: ./campanas
     ports:
-      - "8002:8080"
+      - "8001:8080"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/alpespartners_dijs
       - PULSAR_ADDRESS=pulsar
@@ -75,12 +75,12 @@ services:
     command: python run_flask.py
     networks:
       - app
-      
+
   # Servicio de Contratos
   contratos:
     build: ./contratos
     ports:
-      - "8000:8080"
+      - "8002:8080"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/alpespartners_dijs
       - PULSAR_ADDRESS=pulsar
