@@ -141,6 +141,12 @@ def _extraer_datos_evento(evento):
     if hasattr(evento, 'data'):
         data = evento.data
         
+        # DEBUG: Mostrar datos crudos del evento
+        logger.info(f"CONTRATOS CONSUMIDOR: Datos crudos del evento:")
+        logger.info(f"  - fecha_inicio: {getattr(data, 'fecha_inicio', 'N/A')} (tipo: {type(getattr(data, 'fecha_inicio', None))})")
+        logger.info(f"  - fecha_fin: {getattr(data, 'fecha_fin', 'N/A')} (tipo: {type(getattr(data, 'fecha_fin', None))})")
+        logger.info(f"  - influencer_email: {getattr(data, 'influencer_email', 'N/A')} (tipo: {type(getattr(data, 'influencer_email', None))})")
+        
         # Extraer campos del evento de campaña
         if hasattr(data, 'campana_id'):
             datos['id_campana'] = str(data.campana_id)
@@ -163,7 +169,7 @@ def _extraer_datos_evento(evento):
         if hasattr(data, 'fecha_inicio'):
             datos['fecha_inicio'] = str(data.fecha_inicio)
         if hasattr(data, 'fecha_fin'):
-            datos['fecha_fin'] = str(data.fecha_fin)
+            datos['fecha_fin'] = str(data.fecha_fin) if data.fecha_fin else None
         if hasattr(data, 'entregables'):
             datos['entregables'] = str(data.entregables)
         if hasattr(data, 'tipo_contrato'):

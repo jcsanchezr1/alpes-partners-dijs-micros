@@ -16,7 +16,7 @@ class EstadoReporte(Enum):
 class TipoReporte(Enum):
     """Tipos de reporte disponibles."""
     CAMPANA = "campana"
-    CONTRATO = "contrato"  # TODO: Implementar cuando se tenga el evento de contrato
+    CONTRATO = "contrato"  
     GENERAL = "general"
 
 

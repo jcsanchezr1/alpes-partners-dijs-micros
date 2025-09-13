@@ -7,6 +7,7 @@ objetos complejos del dominio de campanas
 
 from dataclasses import dataclass
 from typing import Any
+import logging
 
 # Importaciones usando el path correcto para el contexto de ejecución
 import sys
@@ -34,9 +35,14 @@ class _FabricaCampana:
             # Convertir entidad a DTO
             return mapeador.entidad_a_dto(obj) if mapeador else obj
         else:
-            # Crear entidad desde DTO
-            if isinstance(obj, RegistrarCampanaDTO):
+            # Crear entidad desde DTO usando mapeador si está disponible
+            if mapeador:
+                return mapeador.dto_a_entidad(obj)
+            elif isinstance(obj, RegistrarCampanaDTO):
+                # Fallback si no hay mapeador
                 from .objetos_valor import TipoComision
+                
+                from datetime import datetime
                 
                 campana = Campana.crear(
                     nombre=obj.nombre,
@@ -44,47 +50,14 @@ class _FabricaCampana:
                     tipo_comision=TipoComision(obj.tipo_comision.lower()),
                     valor_comision=obj.valor_comision,
                     moneda=obj.moneda,
-                    fecha_inicio=obj.fecha_inicio,
-                    fecha_fin=obj.fecha_fin,
+                    fecha_inicio=datetime.fromisoformat(obj.fecha_inicio) if isinstance(obj.fecha_inicio, str) else obj.fecha_inicio,
+                    fecha_fin=datetime.fromisoformat(obj.fecha_fin) if obj.fecha_fin and isinstance(obj.fecha_fin, str) else obj.fecha_fin,
                     titulo_material=obj.titulo_material,
                     descripcion_material=obj.descripcion_material,
                     categorias_objetivo=obj.categorias_objetivo,
                     tipos_afiliado_permitidos=obj.tipos_afiliado_permitidos
                 )
-                
-                # Agregar material promocional si está presente
-                if obj.enlaces_material or obj.imagenes_material or obj.banners_material:
-                    from .objetos_valor import MaterialPromocional
-                    material_actualizado = MaterialPromocional(
-                        titulo=campana.material_promocional.titulo,
-                        descripcion=campana.material_promocional.descripcion,
-                        enlaces=obj.enlaces_material or [],
-                        imagenes=obj.imagenes_material or [],
-                        banners=obj.banners_material or []
-                    )
-                    campana.material_promocional = material_actualizado
-                
-                # Agregar criterios adicionales si están presentes
-                if obj.paises_permitidos or obj.metricas_minimas:
-                    from .objetos_valor import CriteriosAfiliado
-                    criterios_actualizados = CriteriosAfiliado(
-                        tipos_permitidos=campana.criterios_afiliado.tipos_permitidos,
-                        categorias_requeridas=campana.criterios_afiliado.categorias_requeridas,
-                        paises_permitidos=obj.paises_permitidos or [],
-                        metricas_minimas=obj.metricas_minimas or {}
-                    )
-                    campana.criterios_afiliado = criterios_actualizados
-                
-                # Auto-activar si es solicitado
-                if obj.auto_activar:
-                    try:
-                        campana.activar()
-                    except Exception:
-                        pass  # Si no se puede activar, continuar sin activar
-                
                 return campana
-            elif mapeador:
-                return mapeador.dto_a_entidad(obj)
             else:
                 return obj
 

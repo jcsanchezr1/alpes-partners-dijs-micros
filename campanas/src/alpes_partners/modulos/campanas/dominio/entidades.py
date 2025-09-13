@@ -36,6 +36,12 @@ class Campana(AgregacionRaiz):
         self.fecha_activacion: Optional[datetime] = None
         self.fecha_pausa: Optional[datetime] = None
         
+        # Información del influencer origen (para eventos)
+        self.influencer_origen_id: Optional[str] = None
+        self.influencer_origen_nombre: Optional[str] = None
+        self.influencer_origen_email: Optional[str] = None
+        self.categoria_origen: Optional[str] = None
+        
         # Validaciones
         if not self.nombre:
             raise ExcepcionReglaDeNegocio("El nombre de la campana es requerido")
@@ -43,18 +49,7 @@ class Campana(AgregacionRaiz):
         if not self.descripcion:
             raise ExcepcionReglaDeNegocio("La descripción de la campana es requerida")
         
-        # Emitir evento de creación
-        self.agregar_evento(CampanaCreada(
-            campana_id=self.id,
-            nombre=self.nombre,
-            descripcion=self.descripcion,
-            tipo_comision=self.terminos_comision.tipo,
-            valor_comision=self.terminos_comision.valor.cantidad,
-            moneda=self.terminos_comision.valor.moneda,
-            categorias_objetivo=self.criterios_afiliado.categorias_requeridas,
-            fecha_inicio=self.periodo.fecha_inicio,
-            fecha_fin=self.periodo.fecha_fin
-        ))
+        # El evento se emitirá después de asignar los datos del influencer
     
     @classmethod
     def crear(cls, 
@@ -110,5 +105,26 @@ class Campana(AgregacionRaiz):
             moneda=self.terminos_comision.valor.moneda,
             categorias_objetivo=self.criterios_afiliado.categorias_requeridas,
             fecha_inicio=self.periodo.fecha_inicio,
-            fecha_fin=self.periodo.fecha_fin
+            fecha_fin=self.periodo.fecha_fin,
+            influencer_id=self.influencer_origen_id,
+            influencer_nombre=self.influencer_origen_nombre,
+            influencer_email=self.influencer_origen_email
+        ))
+    
+    def emitir_evento_creacion(self) -> None:
+        """Emite el evento de creación de campaña con los datos del influencer actualizados."""
+        from .eventos import CampanaCreada
+        self.agregar_evento(CampanaCreada(
+            campana_id=self.id,
+            nombre=self.nombre,
+            descripcion=self.descripcion,
+            tipo_comision=self.terminos_comision.tipo,
+            valor_comision=self.terminos_comision.valor.cantidad,
+            moneda=self.terminos_comision.valor.moneda,
+            categorias_objetivo=self.criterios_afiliado.categorias_requeridas,
+            fecha_inicio=self.periodo.fecha_inicio,
+            fecha_fin=self.periodo.fecha_fin,
+            influencer_id=self.influencer_origen_id,
+            influencer_nombre=self.influencer_origen_nombre,
+            influencer_email=self.influencer_origen_email
         ))

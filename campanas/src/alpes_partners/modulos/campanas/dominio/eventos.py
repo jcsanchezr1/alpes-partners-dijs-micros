@@ -16,7 +16,10 @@ class CampanaCreada(EventoIntegracion):
                  moneda: str,
                  categorias_objetivo: List[str],
                  fecha_inicio: datetime,
-                 fecha_fin: datetime = None):
+                 fecha_fin: datetime = None,
+                 influencer_id: str = None,
+                 influencer_nombre: str = None,
+                 influencer_email: str = None):
         super().__init__()
         self.campana_id = campana_id
         self.nombre = nombre
@@ -27,6 +30,10 @@ class CampanaCreada(EventoIntegracion):
         self.categorias_objetivo = categorias_objetivo
         self.fecha_inicio = fecha_inicio
         self.fecha_fin = fecha_fin
+        # Información del influencer origen
+        self.influencer_id = influencer_id
+        self.influencer_nombre = influencer_nombre
+        self.influencer_email = influencer_email
     
     def _datos_evento(self) -> Dict[str, Any]:
         return {
@@ -38,6 +45,9 @@ class CampanaCreada(EventoIntegracion):
             'moneda': self.moneda,
             'categorias_objetivo': self.categorias_objetivo,
             'fecha_inicio': self.fecha_inicio.isoformat(),
-            'fecha_fin': self.fecha_fin.isoformat() if self.fecha_fin else None
+            'fecha_fin': self.fecha_fin.isoformat() if self.fecha_fin else None,
+            'influencer_id': self.influencer_id,
+            'influencer_nombre': self.influencer_nombre,
+            'influencer_email': self.influencer_email
         }
 

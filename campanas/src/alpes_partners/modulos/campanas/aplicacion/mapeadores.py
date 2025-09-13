@@ -80,8 +80,8 @@ class MapeadorCampana(Mapeador):
             tipo_comision=TipoComision(dto.tipo_comision.lower()),
             valor_comision=dto.valor_comision,
             moneda=dto.moneda,
-            fecha_inicio=dto.fecha_inicio,
-            fecha_fin=dto.fecha_fin,
+            fecha_inicio=datetime.fromisoformat(dto.fecha_inicio) if isinstance(dto.fecha_inicio, str) else dto.fecha_inicio,
+            fecha_fin=datetime.fromisoformat(dto.fecha_fin) if dto.fecha_fin and isinstance(dto.fecha_fin, str) else dto.fecha_fin,
             titulo_material=dto.titulo_material,
             descripcion_material=dto.descripcion_material,
             categorias_objetivo=dto.categorias_objetivo,
@@ -121,5 +121,15 @@ class MapeadorCampana(Mapeador):
                 campana.activar()
             except Exception:
                 pass  # Si no se puede activar, continuar sin activar
+        
+        # Asignar datos del influencer origen para eventos
+        if hasattr(dto, 'influencer_origen_id'):
+            campana.influencer_origen_id = dto.influencer_origen_id
+        if hasattr(dto, 'influencer_origen_nombre'):
+            campana.influencer_origen_nombre = dto.influencer_origen_nombre
+        if hasattr(dto, 'influencer_origen_email'):
+            campana.influencer_origen_email = dto.influencer_origen_email
+        if hasattr(dto, 'categoria_origen'):
+            campana.categoria_origen = dto.categoria_origen
         
         return campana

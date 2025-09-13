@@ -41,6 +41,9 @@ class RegistrarCampana(Comando):
     auto_activar: bool = False
     influencer_origen_id: Optional[str] = None
     categoria_origen: Optional[str] = None
+    # Datos del influencer para eventos
+    influencer_origen_nombre: Optional[str] = None
+    influencer_origen_email: Optional[str] = None
 
 
 class RegistrarCampanaHandler(RegistrarCampanaBaseHandler):
@@ -58,6 +61,12 @@ class RegistrarCampanaHandler(RegistrarCampanaBaseHandler):
             raise CampanaYaExisteExcepcion(f"Ya existe una campana con el nombre {comando.nombre}")
         
         logger.info(f"COMANDO HANDLER: Nombre disponible: {comando.nombre}")
+        
+        # DEBUG: Mostrar datos del influencer en el comando
+        logger.info(f"COMANDO HANDLER: Datos del influencer en comando:")
+        logger.info(f"  - influencer_origen_id: {comando.influencer_origen_id}")
+        logger.info(f"  - influencer_origen_nombre: {comando.influencer_origen_nombre}")
+        logger.info(f"  - influencer_origen_email: {comando.influencer_origen_email}")
         
         # Crear la entidad solo después de validar las reglas de dominio
         campana_dto = RegistrarCampanaDTO(
@@ -82,12 +91,19 @@ class RegistrarCampanaHandler(RegistrarCampanaBaseHandler):
             ,   metricas_minimas=comando.metricas_minimas
             ,   auto_activar=comando.auto_activar
             ,   influencer_origen_id=comando.influencer_origen_id
-            ,   categoria_origen=comando.categoria_origen)
+            ,   categoria_origen=comando.categoria_origen
+            ,   influencer_origen_nombre=comando.influencer_origen_nombre
+            ,   influencer_origen_email=comando.influencer_origen_email)
 
         campana: Campana = self.fabrica_campanas.crear_objeto(campana_dto, MapeadorCampana())
-        campana.crear_campana(campana)
 
-        # Usar el sistema de UoW con batches y eventos (como en el tutorial)
+        logger.info(f"COMANDO HANDLER: Datos del influencer en la entidad creada:")
+        logger.info(f"  - influencer_origen_id: {campana.influencer_origen_id}")
+        logger.info(f"  - influencer_origen_nombre: {campana.influencer_origen_nombre}")
+        logger.info(f"  - influencer_origen_email: {campana.influencer_origen_email}")
+
+        campana.emitir_evento_creacion()
+
         UnidadTrabajoPuerto.registrar_batch(repositorio.agregar, campana)
         UnidadTrabajoPuerto.savepoint()
         UnidadTrabajoPuerto.commit()

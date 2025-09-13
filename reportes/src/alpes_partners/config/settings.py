@@ -5,7 +5,7 @@ from typing import Optional
 class Settings(BaseSettings):
     """Configuración de la aplicación."""
     
-    # Base de datos - Misma BD que contratos
+    # Base de datos
     database_url: str = "postgresql://postgres:postgres@localhost:5432/alpespartners_dijs"
     
     # Redis

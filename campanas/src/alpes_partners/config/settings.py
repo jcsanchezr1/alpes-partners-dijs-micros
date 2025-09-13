@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379"
     
     # Aplicación
-    app_name: str = "AlpesPartners DIJS"
+    app_name: str = "Campanas Microservice"
     app_version: str = "1.0.0"
     debug: bool = False
     environment: str = "development"

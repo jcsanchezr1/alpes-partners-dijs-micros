@@ -28,6 +28,9 @@ class RegistrarCampanaDTO(DTO):
     auto_activar: bool = False
     influencer_origen_id: Optional[str] = None
     categoria_origen: Optional[str] = None
+    # Datos del influencer para eventos
+    influencer_origen_nombre: Optional[str] = None
+    influencer_origen_email: Optional[str] = None
     
     @validator('nombre')
     def validar_nombre(cls, v):

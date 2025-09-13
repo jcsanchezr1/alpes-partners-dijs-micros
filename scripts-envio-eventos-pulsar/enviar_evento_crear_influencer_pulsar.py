@@ -100,7 +100,7 @@ def enviar_evento_a_pulsar(evento, topico='eventos-crear-influencer'):
     try:
         # Crear cliente Pulsar
         broker_url = f'pulsar://{obtener_broker_host()}:6650'
-        print(f"🔗 Conectando a Pulsar: {broker_url}")
+        print(f"Conectando a Pulsar: {broker_url}")
         
         cliente = pulsar.Client(broker_url)
         
@@ -109,14 +109,14 @@ def enviar_evento_a_pulsar(evento, topico='eventos-crear-influencer'):
         productor = cliente.create_producer(topico, schema=schema)
         
         # Enviar mensaje
-        print(f"📤 Enviando evento al tópico '{topico}'...")
+        print(f"Enviando evento al tópico '{topico}'...")
         productor.send(evento)
         
-        print("✅ Evento enviado exitosamente!")
+        print("Evento enviado exitosamente!")
         return True
         
     except Exception as e:
-        print(f"❌ Error al enviar evento: {str(e)}")
+        print(f"Error al enviar evento: {str(e)}")
         print(f"   Tipo de error: {type(e).__name__}")
         return False
         
@@ -144,26 +144,58 @@ def mostrar_resumen_evento(datos):
     print()
 
 
+def generar_datos_fake_influencer():
+    """Genera datos fake dinámicos para un influencer."""
+    import random
+    from datetime import datetime
+    
+    # Listas de datos fake
+    nombres = [
+        "Ana García", "Carlos López", "María Rodríguez", "Luis Martín", "Sofia González",
+        "Diego Fernández", "Isabella Torres", "Mateo Ruiz", "Valentina Morales", "Santiago Jiménez",
+        "Camila Herrera", "Sebastián Castro", "Lucía Ortega", "Andrés Vargas", "Antonella Ramos"
+    ]
+    
+    categorias_disponibles = [
+        "moda", "belleza", "fitness", "viajes", "comida", "tecnología", "gaming", 
+        "lifestyle", "arte", "música", "deportes", "educación", "salud", "negocios"
+    ]
+    
+    dominios_email = [
+        "gmail.com", "hotmail.com", "yahoo.com", "outlook.com", "example.com"
+    ]
+    
+    # Generar datos aleatorios
+    nombre_completo = random.choice(nombres)
+    nombre_usuario = nombre_completo.lower().replace(" ", ".").replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
+    numero_random = random.randint(1, 999)
+    
+    email = f"{nombre_usuario}{numero_random}@{random.choice(dominios_email)}"
+    categorias_seleccionadas = random.sample(categorias_disponibles, random.randint(2, 4))
+    
+    return {
+        "nombre": nombre_completo,
+        "email": email,
+        "categorias": categorias_seleccionadas,
+        "descripcion": f"Influencer de {' y '.join(categorias_seleccionadas[:2])} con gran engagement",
+        "biografia": f"Creador de contenido especializado en {categorias_seleccionadas[0]} con más de 50K seguidores",
+        "sitio_web": f"https://{nombre_usuario.replace('.', '')}.com",
+        "telefono": f"+34{random.randint(600000000, 699999999)}"
+    }
+
+
 def main():
     """Función principal del script."""
-    print("🚀 Envío de Evento de Crear Influencer a Pulsar")
+    print("Envío de Evento de Crear Influencer a Pulsar")
     print("=" * 55)
     
-    # Datos del evento (los que proporcionaste)
-    datos_evento = {
-        "nombre": "Ana García",
-        "email": "ana.garcia1@example.com",
-        "categorias": ["moda", "juegos"],
-        "descripcion": "Influencer de moda y lifestyle con enfoque en sostenibilidad",
-        "biografia": "Creadora de contenido apasionada por la moda sostenible",
-        "sitio_web": "https://anagarcia.com",
-        "telefono": "+34123456789"
-    }
+    # Generar datos dinámicos del influencer
+    datos_evento = generar_datos_fake_influencer()
     
     # Mostrar configuración
     broker_host = obtener_broker_host()
-    print(f"📍 Broker Pulsar: {broker_host}:6650")
-    print(f"📨 Tópico destino: eventos-crear-influencer")
+    print(f"Broker Pulsar: {broker_host}:6650")
+    print(f"Tópico destino: eventos-crear-influencer")
     print()
     
     # Mostrar resumen del evento
@@ -178,11 +210,11 @@ def main():
         exito = enviar_evento_a_pulsar(evento)
         
         if exito:
-            print("\n🎉 ¡Evento enviado exitosamente!")
+            print("\n¡Evento enviado exitosamente!")
             print("   El evento ha sido publicado en el tópico 'eventos-crear-influencer'")
             print("   El microservicio de influencers puede procesarlo ahora.")
         else:
-            print("\n💥 Error al enviar el evento")
+            print("\n Error al enviar el evento")
             print("   Consejos para solucionar:")
             print("   - Verifica que Pulsar esté ejecutándose")
             print("   - Revisa la variable de entorno PULSAR_ADDRESS")
@@ -191,10 +223,10 @@ def main():
             return 1
             
     except KeyboardInterrupt:
-        print("\n⏹️  Operación cancelada por el usuario")
+        print("\n Operación cancelada por el usuario")
         return 1
     except Exception as e:
-        print(f"\n💥 Error inesperado: {str(e)}")
+        print(f"\n Error inesperado: {str(e)}")
         return 1
     
     return 0

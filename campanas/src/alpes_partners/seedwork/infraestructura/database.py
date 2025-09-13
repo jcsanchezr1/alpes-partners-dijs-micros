@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 # Motor de base de datos síncrono
 engine = create_engine(
     settings.database_url,
-    poolclass=NullPool,  # Para evitar problemas con conexiones en desarrollo
-    echo=settings.debug,  # Log de queries SQL en modo debug
+    poolclass=NullPool, 
+    echo=settings.debug, 
 )
 
 # Factory de sesiones síncronas

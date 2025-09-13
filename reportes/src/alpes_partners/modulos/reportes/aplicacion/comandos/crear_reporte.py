@@ -73,7 +73,7 @@ class RegistrarReporteHandler(RegistrarReporteBaseHandler):
 
         reporte: Reporte = self.fabrica_reportes.crear_objeto(reporte_dto, MapeadorReporte())
 
-        # Usar el sistema de UoW con batches y eventos (como en el tutorial)
+        # Usar el sistema de UoW con batches y eventos
         UnidadTrabajoPuerto.registrar_batch(repositorio.agregar, reporte)
         UnidadTrabajoPuerto.savepoint()
         UnidadTrabajoPuerto.commit()
