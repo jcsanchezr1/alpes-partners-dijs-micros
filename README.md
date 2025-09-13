@@ -6,57 +6,83 @@ Este repositorio contiene la implementación de microservicios para Alpes Partne
 
 ```
 alpes-partners-dijs-micros/
-├── alpes-partners-dijs/          # Microservicio principal (Influencers y Campañas)
+├── influencers/                  # Microservicio de Influencers
+├── campanas/                     # Microservicio de Campañas
+├── contratos/                    # Microservicio de Contratos
 ├── reportes/                     # Microservicio de Reportes
+├── scripts-despliegue-pulsar-vm-gcp/  # Scripts para despliegue de Pulsar
+├── scripts-envio-eventos-pulsar/      # Scripts para envío de eventos
 ├── docker-compose.yml            # Orquestación completa de microservicios
 └── README.md                     # Este archivo
 ```
 
 ## Microservicios
 
-### 1. Alpes Partners DIJS (`alpes-partners-dijs/`)
+### 1. Influencers (`influencers/`)
 
 **Puerto**: 8000  
 **Base de datos**: PostgreSQL (puerto 5432)  
-**Módulos**:
-- **Influencers**: Gestión de influencers y registro
-- **Campañas**: Gestión de campañas de marketing
+**Funcionalidad**:
+- Gestión y registro de influencers
 
 **Características**:
 - Arquitectura DDD con capas bien definidas
-- Eventos de integración via Apache Pulsar
-- API REST para operaciones CRUD
-- Consumidor de eventos entre módulos
+- Eventos de integración vía Apache Pulsar
+- Genera eventos de `InfluencerRegistrado`
 
-### 2. Reportes (`reportes/`)
+### 2. Campañas (`campanas/`)
 
-**Puerto**: Ninguno (completamente asíncrono)  
-**Base de datos**: PostgreSQL (puerto 5433)  
+**Puerto**: 8001  
+**Base de datos**: PostgreSQL (puerto 5432)  
 **Funcionalidad**:
-- Generación automática de reportes basados en eventos
-- Consumo de eventos de campañas creadas
-- Soporte para patrón Saga (compensación)
+- Gestión de campañas de marketing
+- Creación automática basada en eventos de influencers
 
 **Características**:
-- **Completamente asíncrono** (igual que el módulo campañas)
-- Consume eventos de `CampanaCreada` del microservicio principal
+- Arquitectura DDD con capas bien definidas
+- Consume eventos de influencers registrados
+- Genera eventos de `CampanaCreada`
+
+### 3. Contratos (`contratos/`)
+
+**Puerto**: 8002  
+**Base de datos**: PostgreSQL (puerto 5432)  
+**Funcionalidad**:
+- Gestión de contratos entre influencers y campañas
+- Procesamiento de términos contractuales
+
+**Características**:
+- Arquitectura DDD con capas bien definidas
+- Eventos de integración vía Apache Pulsar
+- Genera eventos de `ContratoCreado`
+
+### 4. Reportes (`reportes/`)
+
+**Puerto**: 8003  
+**Base de datos**: PostgreSQL (puerto 5432)  
+**Funcionalidad**:
+- Generación automática de reportes basados en eventos
+- Consumo de eventos de contratos creados
+
+**Características**:
+- Consume eventos de `ContratoCreado`
 - Genera reportes automáticamente
-- Estado de reportes con soporte para cancelación
-- TODO: Consumir eventos de contrato cuando estén disponibles
 
 ## Infraestructura Compartida
 
 ### Apache Pulsar
 - **Puerto**: 6650 (cliente), 8080 (API REST)
 - **Tópicos**:
-  - `eventos-influencers`: Eventos del módulo de influencers
-  - `eventos-campanas`: Eventos del módulo de campañas
+  - `eventos-influencers`: Eventos del microservicio de influencers
+  - `eventos-campanas`: Eventos del microservicio de campañas
+  - `eventos-contratos`: Eventos del microservicio de contratos
   - `eventos-reportes`: Eventos del microservicio de reportes
-  - `eventos-contratos`: (TODO) Eventos de contrato
+  - `video-detectado`: Eventos de detección de videos
 
 ### Bases de Datos
-- **PostgreSQL Alpes**: Puerto 5432 (influencers y campañas)
-- **PostgreSQL Reportes**: Puerto 5433 (reportes)
+- **PostgreSQL**: Puerto 5432 (compartida por todos los microservicios)
+  - Base de datos: `alpespartners_dijs`
+  - Esquemas separados por microservicio para mantener separación lógica
 
 ## Ejecución
 
@@ -68,72 +94,68 @@ alpes-partners-dijs-micros/
 
 ```bash
 # Desde el directorio raíz
-docker-compose up --build
+docker-compose up --build -d
 ```
 
 Esto iniciará todos los servicios:
 - Apache Pulsar (6650, 8080)
-- PostgreSQL para Alpes Partners (5432)
-- PostgreSQL para Reportes (5433)
-- Microservicio Alpes Partners (8000)
-- Consumidor de eventos Alpes Partners
-- Microservicio de Reportes (solo consumidor)
-- Consumidor de eventos de Reportes
+- PostgreSQL (5432)
+- Microservicio Influencers (8000)
+- Microservicio Campañas (8001)
+- Microservicio Contratos (8002)
+- Microservicio Reportes (8003)
 
 ### Verificación
 
 ```bash
-# Health check del servicio principal
-curl http://localhost:8000/
 
-# Verificar logs del servicio de reportes (no tiene API)
-docker logs reportes-app
-
-# API de influencers
-curl http://localhost:8000/influencers
-
-# API de campañas
-curl http://localhost:8000/campanas
-
-# Verificar logs de reportes 
-docker logs reportes-app
+# Verificar logs de cada servicio
+docker logs alpes-partners-dijs-micros-influencers-1
+docker logs alpes-partners-dijs-micros-campanas-1
+docker logs alpes-partners-dijs-micros-contratos-1
+docker logs alpes-partners-dijs-micros-reportes-1
 ```
 
 ### Ejecución Individual
 
-Cada microservicio puede ejecutarse independientemente:
+Cada microservicio puede ejecutarse independientemente usando Docker:
 
 ```bash
-# Solo el microservicio de reportes
-cd reportes/
-docker-compose up --build -d
+# Microservicio de influencers
+cd influencers/
+docker build -t influencers .
+docker run -p 8000:8080 influencers
 
-# Solo el microservicio principal
-cd alpes-partners-dijs/
-docker-compose up --build -d
+# Microservicio de campañas
+cd campanas/
+docker build -t campanas .
+docker run -p 8001:8080 campanas
+
+# Microservicio de contratos
+cd contratos/
+docker build -t contratos .
+docker run -p 8002:8080 contratos
+
+# Microservicio de reportes
+cd reportes/
+docker build -t reportes .
+docker run -p 8003:8080 reportes
 ```
 
 ## Flujo de Eventos
 
-### Escenario: Creación de Campaña
-
-1. **Usuario crea campaña** → API Alpes Partners (8000)
-2. **Campaña se persiste** → PostgreSQL Alpes (5432)
-3. **Evento `CampanaCreada`** → Pulsar (`eventos-campanas`)
-4. **Reportes consume evento** → Consumidor de Reportes
-5. **Reporte se crea automáticamente** → PostgreSQL Reportes (5433)
-6. **Evento `ReporteCreado`** → Pulsar (`eventos-reportes`)
-
-### Escenario: Registro de Influencer
-
-1. **Usuario registra influencer** → API Alpes Partners (8000)
-2. **Influencer se persiste** → PostgreSQL Alpes (5432)
+1. **Usuario registra influencer** → Consume Evento Influencers 
+2. **Influencer se persiste** → PostgreSQL (5432)
 3. **Evento `InfluencerRegistrado`** → Pulsar (`eventos-influencers`)
-4. **Campañas consume evento** → Consumidor interno
-5. **Campaña automática se crea** → PostgreSQL Alpes (5432)
+4. **Campañas consume evento** → Microservicio Campañas
+5. **Campaña automática se crea** → PostgreSQL (5432)
 6. **Evento `CampanaCreada`** → Pulsar (`eventos-campanas`)
-7. **Reportes consume evento** → Microservicio de Reportes
-8. **Reporte se genera** → PostgreSQL Reportes (5433)
+7. **Contratos consume evento** → Microservicio Contratos
+8. **Contrato se persiste** → PostgreSQL (5432)
+9. **Evento `ContratoCreado`** → Pulsar (`eventos-contratos`)
+10. **Reportes consume evento** → Microservicio Reportes
+11. **Reporte se crea automáticamente** → PostgreSQL (5432)
+12. **Evento `ReporteCreado`** → Pulsar (`eventos-reportes`)
 
 ## Desarrollo
 
