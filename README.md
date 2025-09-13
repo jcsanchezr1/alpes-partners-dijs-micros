@@ -167,3 +167,66 @@ Nota: Si generar error de permisos correr `chmod +x create-vm.sh`
 Nota: Si generar error de permisos correr `chmod +x startup-script.sh`
 
 3. Antes de desplegar los microservicios, cambiar la variable de entorno `PULSAR_ADDRESS` por la IP externa de la VM
+
+## Script de Envío de Eventos a Pulsar
+
+Se incluye un script independiente para enviar eventos de contrato creado directamente a Pulsar.
+
+### Archivo: `enviar_evento_pulsar.py`
+
+### Requisitos
+
+```bash
+# Instalar cliente de Pulsar con soporte Avro
+pip3 install 'pulsar-client[avro]'
+```
+
+### Configuración
+
+El script usa las siguientes configuraciones:
+
+- **Broker Pulsar**: `localhost:6650` (por defecto)
+- **Tópico**: `eventos-contratos`
+- **Esquema**: Avro con payload de contrato
+
+### Variables de Entorno
+
+```bash
+# Si Pulsar está en otro servidor
+export PULSAR_ADDRESS=tu-servidor-pulsar
+
+# Ejemplo para GCP
+export PULSAR_ADDRESS=34.123.45.67
+```
+
+### Ejecución
+
+```bash
+# Ejecución básica (usa localhost)
+python enviar_evento_pulsar.py
+
+# Con servidor remoto
+PULSAR_ADDRESS=mi-servidor-pulsar python enviar_evento_pulsar.py
+
+# Hacer ejecutable (opcional)
+chmod +x enviar_evento_pulsar.py
+./enviar_evento_pulsar.py
+```
+
+### Datos del Evento
+
+El script envía un evento con la siguiente estructura:
+
+```json
+{
+  "data": {
+    "id_contrato": "fdad3d32-f6ea-4836-bc11-bb622036ab7c",
+    "id_influencer": "inf-12345",
+    "id_campana": "camp-67890",
+    "monto_total": 2500.0,
+    "moneda": "USD",
+    "tipo_contrato": "temporal",
+    "fecha_creacion": "2025-09-13 01:07:56.578686"
+  }
+}
+```
