@@ -161,7 +161,7 @@ docker run -p 8003:8080 reportes
 
 ### Estructura DDD
 
-Ambos microservicios siguen la misma estructura DDD:
+Todos los microservicios siguen la misma estructura DDD:
 
 ```
 src/a
