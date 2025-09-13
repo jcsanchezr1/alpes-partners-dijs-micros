@@ -39,7 +39,7 @@ alpes-partners-dijs-micros/
 - Creación automática basada en eventos de influencers
 
 **Características**:
-- Arquitectura DDD con capas bien definidas
+- Arquitectura DDD
 - Consume eventos de influencers registrados
 - Genera eventos de `CampanaCreada`
 
@@ -52,7 +52,7 @@ alpes-partners-dijs-micros/
 - Procesamiento de términos contractuales
 
 **Características**:
-- Arquitectura DDD con capas bien definidas
+- Arquitectura DDD
 - Eventos de integración vía Apache Pulsar
 - Genera eventos de `ContratoCreado`
 
@@ -65,8 +65,9 @@ alpes-partners-dijs-micros/
 - Consumo de eventos de contratos creados
 
 **Características**:
-- Consume eventos de `ContratoCreado`
-- Genera reportes automáticamente
+- Arquitectura DDD
+- Consume eventos de Contratos creados
+- Genera eventos de `ReporteCreado`
 
 ## Infraestructura Compartida
 
@@ -77,7 +78,6 @@ alpes-partners-dijs-micros/
   - `eventos-campanas`: Eventos del microservicio de campañas
   - `eventos-contratos`: Eventos del microservicio de contratos
   - `eventos-reportes`: Eventos del microservicio de reportes
-  - `video-detectado`: Eventos de detección de videos
 
 ### Bases de Datos
 - **PostgreSQL**: Puerto 5432 (compartida por todos los microservicios)
