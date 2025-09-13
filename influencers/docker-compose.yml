@@ -1,0 +1,74 @@
+version: '3.8'
+
+networks:
+  app:
+    driver: bridge
+
+services:
+  # Apache Pulsar Standalone
+  pulsar:
+    image: apachepulsar/pulsar:latest
+    container_name: pulsar
+    command: ["bin/pulsar", "standalone"]
+    ports:
+      - "6650:6650"  # Puerto para clientes Pulsar
+      - "8080:8080"  # Puerto para la API REST de Pulsar
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/admin/v2/brokers/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - app
+
+  # Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: alpespartners_dijs
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app
+
+  # Main Application
+  alpes-partners:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/alpespartners_dijs
+      - PULSAR_ADDRESS=pulsar
+      - ENVIRONMENT=development
+      - RECREATE_DB=false
+    depends_on:
+      - postgres
+    volumes:
+      - .:/app
+    command: python run_flask.py
+    networks:
+      - app
+
+  # Pulsar Consumer Service
+  pulsar-consumer:
+    build: .
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/alpespartners_dijs
+      - PULSAR_ADDRESS=pulsar
+      - ENVIRONMENT=development
+    depends_on:
+      - postgres
+      - pulsar
+    volumes:
+      - .:/app
+    command: python run_pulsar_consumer.py
+    networks:
+      - app
+
+volumes:
+  postgres_data:
