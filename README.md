@@ -174,7 +174,7 @@ Nota: Si generar error de permisos correr `chmod +x startup-script.sh`
 
 Se incluye un script independiente para enviar eventos de contrato creado directamente a Pulsar.
 
-### Archivo: `enviar_evento_pulsar.py`
+### Archivo: `enviar-eventos/enviar_evento_reportes_pulsar.py`
 
 ### Despliegue Microservicios en Cloud Run
 
@@ -223,7 +223,7 @@ gcloud run deploy reportes-ms \
     --max-instances 1
 ```
 
-### Requisitos
+## Scripts envio eventos pulsar
 
 ```bash
 # Instalar cliente de Pulsar con soporte Avro
@@ -252,14 +252,14 @@ export PULSAR_ADDRESS=34.123.45.67
 
 ```bash
 # Ejecución básica (usa localhost)
-python enviar_evento_pulsar.py
+python enviar-eventos/enviar_evento_reportes_pulsar.py
 
 # Con servidor remoto
-PULSAR_ADDRESS=mi-servidor-pulsar python enviar_evento_pulsar.py
+PULSAR_ADDRESS=mi-servidor-pulsar python enviar-eventos/enviar_evento_reportes_pulsar.py
 
 # Hacer ejecutable (opcional)
-chmod +x enviar_evento_pulsar.py
-./enviar_evento_pulsar.py
+chmod +x enviar-eventos/enviar_evento_reportes_pulsar.py
+./enviar-eventos/enviar_evento_reportes_pulsar.py
 ```
 
 ### Datos del Evento
