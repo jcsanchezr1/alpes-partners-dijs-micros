@@ -157,6 +157,317 @@ docker run -p 8003:8080 reportes
 11. **Reporte se crea automáticamente** → PostgreSQL (5432)
 12. **Evento `ReporteCreado`** → Pulsar (`eventos-reportes`)
 
+## Tipos de Eventos de Integración
+
+### Pregunta de Evaluación
+**"Se justifica correctamente los tipos de eventos a utilizar (integración o carga de estado). Ello incluye la definición de los esquemas y evolución de los mismos"**
+
+### Justificación
+
+En nuestro sistema implementamos **ambos tipos de eventos** porque cada uno cumple un propósito específico:
+
+#### 🔹 **Eventos de Integración**
+Los usamos para sincronizar información entre nuestros microservicios. Cuando un influencer se registra, necesitamos que el sistema de campañas se entere para crear campañas automáticamente. Estos eventos se publican en Apache Pulsar y otros servicios los consumen.
+
+#### 🔹 **Eventos con Carga de Estado (Eventos Gordos)**
+Los utilizamos cuando necesitamos enviar toda la información de una entidad, no solo lo que cambió. Por ejemplo, cuando creamos una campaña, enviamos todos los datos del influencer asociado para que el sistema de contratos pueda generar el contrato completo sin hacer consultas adicionales.
+
+### Implementación por Microservicio
+
+#### **1. Microservicio Influencers**
+
+**Evento de Integración**: `InfluencerRegistrado`
+
+**Ubicación**: `influencers/src/alpes_partners/modulos/influencers/infraestructura/schema/eventos.py`
+
+```python
+class InfluencerRegistradoPayload(Record):
+    """Payload del evento InfluencerRegistrado - Estado Completo"""
+    id_influencer = String()
+    nombre = String()
+    email = String()
+    categorias = Array(String())
+    fecha_registro = Long()
+
+class EventoInfluencerRegistrado(EventoIntegracion):
+    """Evento de integración para influencer registrado"""
+    data = InfluencerRegistradoPayload()
+```
+
+**¿Por qué lo hacemos así?**: 
+- **Integración**: Cuando registramos un influencer, el sistema de campañas necesita enterarse para crear campañas automáticamente
+- **Carga de Estado**: Enviamos todos los datos del influencer (nombre, email, categorías) para que campañas no tenga que consultar la base de datos
+
+#### **2. Microservicio Campañas**
+
+**Evento de Integración**: `CampanaCreada`
+
+**Ubicación**: `campanas/src/alpes_partners/modulos/campanas/infraestructura/schema/eventos.py`
+
+```python
+class CampanaCreadaPayload(Record):
+    """Payload del evento CampanaCreada - Estado Completo"""
+    campana_id = String()
+    nombre = String()
+    descripcion = String()
+    tipo_comision = String()
+    valor_comision = Float()
+    moneda = String(default="USD")
+    categorias_objetivo = Array(String())
+    fecha_inicio = String()
+    fecha_fin = String(default=None, required=False)
+    # Campos adicionales para crear contratos
+    influencer_id = String(default=None, required=False)
+    influencer_nombre = String(default=None, required=False)
+    influencer_email = String(default=None, required=False)
+    monto_base = Float(default=None, required=False)
+    entregables = String(default=None, required=False)
+    tipo_contrato = String(default="puntual")
+    fecha_creacion = String()
+
+class EventoCampanaCreada(EventoIntegracion):
+    """Evento de integración para campaña creada"""
+    data = CampanaCreadaPayload()
+```
+
+**¿Por qué lo hacemos así?**:
+- **Integración**: Cuando creamos una campaña, el sistema de contratos debe generar el contrato automáticamente
+- **Carga de Estado**: Enviamos todos los datos de la campaña y del influencer para que contratos no necesite hacer consultas adicionales
+
+#### **3. Microservicio Contratos**
+
+**Evento de Integración**: `ContratoCreado`
+
+**Ubicación**: `contratos/src/alpes_partners/modulos/contratos/infraestructura/schema/v1/eventos.py`
+
+```python
+class ContratoCreadoPayload(Record):
+    """Payload del evento ContratoCreado - Estado Completo"""
+    contrato_id = String()
+    influencer_id = String()
+    campana_id = String()
+    monto_total = Float()
+    moneda = String()
+    tipo_contrato = String()
+    fecha_creacion = String()
+
+class EventoContratoCreado(EventoIntegracion):
+    """Evento de integración para contrato creado"""
+    data = ContratoCreadaPayload()
+```
+
+**¿Por qué lo hacemos así?**:
+- **Integración**: Cuando se crea un contrato, reportes debe generar métricas automáticamente
+- **Carga de Estado**: Enviamos todos los datos del contrato (montos, fechas, participantes) para que reportes tenga todo lo necesario
+
+#### **4. Microservicio Reportes**
+
+**Evento de Integración**: `ReporteCreado`
+
+**Ubicación**: `reportes/src/alpes_partners/modulos/reportes/infraestructura/schema/eventos.py`
+
+```python
+class ReporteCreadoPayload(Record):
+    """Payload del evento ReporteCreado - Estado Completo"""
+    reporte_id = String()
+    tipo_reporte = String()
+    fecha_generacion = String()
+    datos_reporte = String()  
+    contratos_incluidos = Array(String())
+
+class EventoReporteCreado(EventoIntegracion):
+    """Evento de integración para reporte creado"""
+    data = ReporteCreadoPayload()
+```
+
+**¿Por qué lo hacemos así?**:
+- **Integración**: Cuando generamos un reporte, otros sistemas pueden consumirlo para análisis
+- **Carga de Estado**: Enviamos todas las métricas y datos agregados para que otros sistemas tengan la información completa
+
+### Esquemas y Evolución
+
+#### **Definición de Esquemas Avro**
+Todos los eventos usan **Avro Schema** para garantizar compatibilidad:
+
+```python
+from pulsar.schema import Record, String, Array, Float, Long
+```
+
+#### **Evolución de Esquemas**
+- **Campos opcionales**: `required=False` para evolución hacia atrás
+- **Valores por defecto**: `default=None` para compatibilidad
+- **Versionado**: Esquemas en directorios `v1/` para evolución
+
+**Ejemplo de evolución**:
+```python
+influencer_email = String(default=None, required=False)  
+```
+
+### Conclusión
+
+En resumen, usamos **ambos tipos de eventos** porque:
+
+1. **Eventos de Integración**: Nos permiten que los microservicios se comuniquen entre sí de forma asíncrona
+2. **Eventos con Carga de Estado**: Evitamos que los servicios tengan que hacer consultas adicionales a la base de datos
+
+Esta combinación nos da un sistema donde cada microservicio puede trabajar de forma independiente, pero siempre con la información que necesita para funcionar correctamente.
+
+## Topologías para la Administración de Datos
+
+### Pregunta de Evaluación
+**"Definió, justificó e implementó alguna de las topologías para la administración de datos?"**
+
+### Topología Implementada: **Híbrida**
+
+En nuestro proyecto decidimos usar una **topología híbrida** porque nos permite balancear costos, complejidad y flexibilidad.
+
+#### ¿Por qué elegimos la topología híbrida?
+
+**Ventajas que nos interesan:**
+- **Reducción de costos**: No necesitamos 4 bases de datos separadas, lo que reduce costos de infraestructura
+- **Administración simplificada**: Un solo equipo puede manejar la base de datos
+- **Independencia lógica**: Cada microservicio tiene su propio esquema, manteniendo separación de datos
+
+**Desventajas que manejamos:**
+- **Acoplamiento controlado**: Aunque compartimos la base física, cada servicio tiene su esquema independiente
+- **Riesgo de monolito**: Lo evitamos usando esquemas separados y no compartiendo tablas
+
+### Implementación en Nuestros Microservicios
+
+#### **Estructura de Base de Datos**
+
+```sql
+-- Base de datos compartida: alpespartners_dijs
+-- Puerto: 5432
+
+-- Esquemas separados por microservicio:
+- influencers_schema    -- Microservicio Influencers
+- campanas_schema       -- Microservicio Campañas  
+- contratos_schema      -- Microservicio Contratos
+- reportes_schema       -- Microservicio Reportes
+```
+
+#### **Ejemplos de Implementación**
+
+**1. Microservicio Influencers**
+```python
+# influencers/src/alpes_partners/seedwork/infraestructura/database.py
+class InfluencerDB(DeclarativeBase):
+    __tablename__ = 'influencers'
+    __table_args__ = {'schema': 'influencers_schema'}
+    
+    id = Column(String, primary_key=True)
+    nombre = Column(String, nullable=False)
+    email = Column(String, nullable=False)
+    categorias = Column(JSON)
+```
+
+**2. Microservicio Campañas**
+```python
+# campanas/src/alpes_partners/seedwork/infraestructura/database.py
+class CampanaDB(DeclarativeBase):
+    __tablename__ = 'campanas'
+    __table_args__ = {'schema': 'campanas_schema'}
+    
+    id = Column(String, primary_key=True)
+    nombre = Column(String, nullable=False)
+    influencer_origen_id = Column(String)
+    fecha_inicio = Column(DateTime)
+    fecha_fin = Column(DateTime)
+```
+
+**3. Microservicio Contratos**
+```python
+# contratos/src/alpes_partners/seedwork/infraestructura/database.py
+class ContratoDB(DeclarativeBase):
+    __tablename__ = 'contratos'
+    __table_args__ = {'schema': 'contratos_schema'}
+    
+    id = Column(String, primary_key=True)
+    influencer_id = Column(String, nullable=False)
+    campana_id = Column(String, nullable=False)
+    monto_total = Column(Float)
+    fecha_creacion = Column(DateTime)
+```
+
+**4. Microservicio Reportes**
+```python
+# reportes/src/alpes_partners/seedwork/infraestructura/database.py
+class ReporteDB(DeclarativeBase):
+    __tablename__ = 'reportes'
+    __table_args__ = {'schema': 'reportes_schema'}
+    
+    id = Column(String, primary_key=True)
+    tipo_reporte = Column(String)
+    datos_reporte = Column(JSON)
+    fecha_generacion = Column(DateTime)
+```
+
+### ¿Por qué no las otras topologías?
+
+#### **Topología Centralizada**
+- **Problema**: Un solo esquema compartido crearía alto acoplamiento
+- **Ejemplo de lo que evitaríamos**: 
+  ```sql
+  -- MAL: Tabla compartida
+  CREATE TABLE datos_compartidos (
+      influencer_id VARCHAR,
+      campana_id VARCHAR,
+      contrato_id VARCHAR,
+      reporte_id VARCHAR
+  );
+  ```
+
+#### **Topología Descentralizada**
+- **Problema**: 4 bases de datos separadas serían costosas y complejas
+- **Ejemplo de lo que evitaríamos**:
+  ```yaml
+  # docker-compose.yml - MAL: Múltiples bases de datos
+  services:
+    postgres-influencers:
+      image: postgres:13
+    postgres-campanas:
+      image: postgres:13
+    postgres-contratos:
+      image: postgres:13
+    postgres-reportes:
+      image: postgres:13
+  ```
+
+### Configuración de Conexión
+
+**Docker Compose - Una sola base de datos:**
+```yaml
+# docker-compose.yml
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: alpespartners_dijs
+    ports:
+      - "5432:5432"
+  
+  influencers:
+    environment:
+      DATABASE_URL: "postgresql://postgres:password@postgres:5432/alpespartners_dijs"
+  
+  campanas:
+    environment:
+      DATABASE_URL: "postgresql://postgres:password@postgres:5432/alpespartners_dijs"
+```
+
+### Ventajas de Nuestra Implementación
+
+1. **Costo-efectiva**: Una sola instancia de PostgreSQL
+2. **Mantenimiento simple**: Un solo punto de administración
+3. **Independencia lógica**: Esquemas separados evitan acoplamiento
+4. **Escalabilidad**: Cada esquema puede crecer independientemente
+5. **Consistencia**: Transacciones ACID dentro de cada esquema
+
+### Conclusión
+
+La topología híbrida nos permite tener lo mejor de ambos mundos: la simplicidad operativa de una base centralizada con la independencia lógica de bases descentralizadas. Cada microservicio mantiene su autonomía de datos a través de esquemas separados, pero compartimos la infraestructura para reducir costos y complejidad.
+
 ## Desarrollo
 
 ### Estructura DDD
