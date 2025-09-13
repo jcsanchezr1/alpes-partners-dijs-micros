@@ -23,7 +23,6 @@ class Settings(BaseSettings):
     
     # Eventos
     eventos_topico_influencers: str = "eventos-influencers"
-    eventos_topico_video_detectado: str = "video-detectado"
     
     # Logging
     log_level: str = "INFO"
