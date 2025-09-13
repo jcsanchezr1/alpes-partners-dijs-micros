@@ -162,19 +162,13 @@ src/a
 
 ### Despliegue Pulsar en VM
 
-1. Ejecutar el `pulsar-vm/create-vm.sh` para crear la VM en GCP
+1. Ejecutar el `scripts-despliegue-pulsar-vm-gcp/create-vm.sh` para crear la VM en GCP
 Nota: Si generar error de permisos correr `chmod +x create-vm.sh`
 
-2. Ejecutar el `pulsar-vm/startup-script.sh` para instalar pulsar y levantarlo con docker
+2. Ejecutar el `scripts-despliegue-pulsar-vm-gcp/startup-script.sh` para instalar pulsar y levantarlo con docker
 Nota: Si generar error de permisos correr `chmod +x startup-script.sh`
 
 3. Antes de desplegar los microservicios, cambiar la variable de entorno `PULSAR_ADDRESS` por la IP externa de la VM
-
-## Script de Envío de Eventos a Pulsar
-
-Se incluye un script independiente para enviar eventos de contrato creado directamente a Pulsar.
-
-### Archivo: `enviar-eventos/enviar_evento_reportes_pulsar.py`
 
 ### Despliegue Microservicios en Cloud Run
 
@@ -252,14 +246,14 @@ export PULSAR_ADDRESS=34.123.45.67
 
 ```bash
 # Ejecución básica (usa localhost)
-python enviar-eventos/enviar_evento_reportes_pulsar.py
+python scripts-envio-eventos-pulsar/enviar_evento_reportes_pulsar.py
 
 # Con servidor remoto
-PULSAR_ADDRESS=mi-servidor-pulsar python enviar-eventos/enviar_evento_reportes_pulsar.py
+PULSAR_ADDRESS=mi-servidor-pulsar python scripts-envio-eventos-pulsar/enviar_evento_reportes_pulsar.py
 
 # Hacer ejecutable (opcional)
-chmod +x enviar-eventos/enviar_evento_reportes_pulsar.py
-./enviar-eventos/enviar_evento_reportes_pulsar.py
+chmod +x scripts-envio-eventos-pulsar/enviar_evento_reportes_pulsar.py
+./scripts-envio-eventos-pulsar/enviar_evento_reportes_pulsar.py
 ```
 
 ### Datos del Evento
