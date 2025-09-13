@@ -9,13 +9,13 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 def registrar_handlers():
     """Importa los módulos de aplicación para registrar handlers y comandos."""
     # La importación del módulo de aplicación registra automáticamente los comandos
-    import alpes_partners.modulos.influencers.aplicacion
-    import alpes_partners.modulos.campanas.aplicacion
+    # Se hace de forma lazy para evitar problemas de dependencias circulares
+    pass
 
 def importar_modelos_alchemy():
-    """Importa los DTOs de SQLAlchemy para crear las tablas."""
-    import alpes_partners.modulos.influencers.infraestructura.dto
-    import alpes_partners.modulos.campanas.infraestructura.schema.campanas
+    """Importa los modelos de SQLAlchemy para crear las tablas."""
+    # Importar solo la clase Base que es lo que necesitamos para crear las tablas
+    from alpes_partners.modulos.influencers.infraestructura.modelos import Base
 
 def comenzar_consumidor():
     """
@@ -67,6 +67,12 @@ def create_app(configuracion={}):
 
     # Registro de Blueprints
     app.register_blueprint(influencers.bp)
+
+    # Importar handlers después de que la app esté configurada
+    try:
+        import alpes_partners.modulos.influencers.aplicacion
+    except ImportError as e:
+        print(f"Advertencia: No se pudo importar módulo de aplicación: {e}")
 
     @app.route("/spec")
     def spec():

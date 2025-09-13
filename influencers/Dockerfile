@@ -18,7 +18,7 @@ COPY . .
 RUN pip install -e .
 
 # Expose port
-EXPOSE 8000
+EXPOSE 8080
 
 # Default command
 CMD ["python", "run_flask.py"]
