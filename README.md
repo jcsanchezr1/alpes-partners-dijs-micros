@@ -157,12 +157,14 @@ docker run -p 8003:8080 reportes
 11. **Reporte se crea automáticamente** → PostgreSQL (5432)
 12. **Evento `ReporteCreado`** → Pulsar (`eventos-reportes`)
 
-## Tipos de Eventos de Integración
+## Documentación
 
-### Pregunta de Evaluación
+### Tipos de Eventos de Integración
+
+#### Pregunta de Evaluación
 **"Se justifica correctamente los tipos de eventos a utilizar (integración o carga de estado). Ello incluye la definición de los esquemas y evolución de los mismos"**
 
-### Justificación
+#### Justificación
 
 En nuestro sistema implementamos **ambos tipos de eventos** porque cada uno cumple un propósito específico:
 
@@ -172,7 +174,7 @@ Los usamos para sincronizar información entre nuestros microservicios. Cuando u
 #### 🔹 **Eventos con Carga de Estado (Eventos Gordos)**
 Los utilizamos cuando necesitamos enviar toda la información de una entidad, no solo lo que cambió. Por ejemplo, cuando creamos una campaña, enviamos todos los datos del influencer asociado para que el sistema de contratos pueda generar el contrato completo sin hacer consultas adicionales.
 
-### Implementación por Microservicio
+#### Implementación por Microservicio
 
 #### **1. Microservicio Influencers**
 
@@ -467,6 +469,36 @@ services:
 ### Conclusión
 
 La topología híbrida nos permite tener lo mejor de ambos mundos: la simplicidad operativa de una base centralizada con la independencia lógica de bases descentralizadas. Cada microservicio mantiene su autonomía de datos a través de esquemas separados, pero compartimos la infraestructura para reducir costos y complejidad.
+
+### Modelo CRUD + Pulsar
+
+#### Justificación del Modelo Elegido
+
+En nuestro proyecto implementamos el **modelo CRUD + Pub/Sub** (en nuestro caso, CRUD + Pulsar), que representa una mejora significativa sobre la topología CRUD tradicional.
+
+Este modelo es una **mejora a la topología CRUD** donde publicamos eventos de los cambios sucedidos de forma asíncrona. Los servicios externos pueden beneficiarse de esta topología gracias al consumo de eventos.
+
+El modelo CRUD + Pulsar nos permite mantener la simplicidad de las operaciones CRUD mientras obtenemos los beneficios de la comunicación orientada a eventos, siendo una solución equilibrada para nuestro contexto de microservicios.
+
+### Descripción de Actividades por Miembro del Equipo
+
+**Sergio Celis**
+- Desarrollo completo del microservicio de Campañas
+- Definición y especificación de los 3 escenarios de calidad
+
+**Diego Jaramillo**
+- Desarrollo completo del microservicio de Influencers
+- Definición y especificación de los 3 escenarios de calidad
+
+**Julio Sánchez**
+- Desarrollo del microservicio de Contratos
+- Implementación y ajustes de comunicación orientada a eventos
+- Configuración y despliegue de la solución en Google Cloud Platform (GCP)
+
+**Ian Beltrán**
+- Desarrollo del microservicio de Reportes
+- Implementación y ajustes de comunicación orientada a eventos
+- Configuración y despliegue de la solución en Google Cloud Platform (GCP)
 
 ## Desarrollo
 
