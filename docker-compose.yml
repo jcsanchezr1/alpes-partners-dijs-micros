@@ -95,5 +95,29 @@ services:
     networks:
       - app
 
+  # Servicio de Saga (Coordinador)
+  saga:
+    build: ./influencers
+    ports:
+      - "8084:8084"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/alpespartners_dijs
+      - PULSAR_ADDRESS=pulsar
+      - ENVIRONMENT=development
+      - RECREATE_DB=false
+      - LOG_LEVEL=INFO
+      - PORT=8084
+    depends_on:
+      - postgres
+      - pulsar
+      - influencers
+      - campanas
+      - contratos
+    volumes:
+      - ./influencers:/app
+    command: python run_saga.py
+    networks:
+      - app
+
 volumes:
   postgres_data:

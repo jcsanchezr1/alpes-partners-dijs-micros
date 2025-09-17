@@ -128,3 +128,46 @@ class RepositorioSagaLogSQLAlchemy(RepositorioSagaLog):
             modelo.comando_datos = json.dumps(saga_log.comando_datos) if saga_log.comando_datos else None
             modelo.fecha_actualizacion = saga_log.fecha_actualizacion
             db.session.flush()
+    
+    def eliminar(self, saga_log: SagaLog):
+        """Eliminar una entrada del log."""
+        logger.info(f"SAGA LOG: Eliminando entrada - ID: {saga_log.id}")
+        
+        modelo = db.session.query(SagaLogModelo).filter(
+            SagaLogModelo.id == saga_log.id
+        ).first()
+        
+        if modelo:
+            db.session.delete(modelo)
+            db.session.flush()
+            logger.info(f"SAGA LOG: Entrada eliminada exitosamente - ID: {saga_log.id}")
+        else:
+            logger.warning(f"SAGA LOG: No se encontró entrada para eliminar - ID: {saga_log.id}")
+    
+    def obtener_todos(self) -> List[SagaLog]:
+        """Obtener todas las entradas del log."""
+        logger.info("SAGA LOG: Obteniendo todas las entradas")
+        
+        modelos = db.session.query(SagaLogModelo).order_by(
+            SagaLogModelo.fecha_procesamiento.desc()
+        ).all()
+        
+        entradas = []
+        for modelo in modelos:
+            entrada = SagaLog(
+                id_correlacion=modelo.id_correlacion,
+                evento_tipo=modelo.evento_tipo,
+                evento_datos=json.loads(modelo.evento_datos),
+                comando_tipo=modelo.comando_tipo,
+                comando_datos=json.loads(modelo.comando_datos) if modelo.comando_datos else None,
+                paso_index=modelo.paso_index,
+                estado=modelo.estado,
+                fecha_procesamiento=modelo.fecha_procesamiento
+            )
+            entrada.id = modelo.id
+            entrada.fecha_creacion = modelo.fecha_creacion
+            entrada.fecha_actualizacion = modelo.fecha_actualizacion
+            entradas.append(entrada)
+        
+        logger.info(f"SAGA LOG: Encontradas {len(entradas)} entradas totales")
+        return entradas
