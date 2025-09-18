@@ -24,7 +24,7 @@ from ..dominio.eventos import CampanaCreada, ContratoCreado
 from ...influencers.dominio.eventos import InfluencerRegistrado
 
 # Importar coordinador de saga
-from ..aplicacion.coordinadores.saga_reservas import oir_mensaje
+from ..aplicacion.coordinadores.saga_alpes_partners import oir_mensaje
 
 # Definir esquemas de eventos (compatible con los microservicios)
 class InfluencerRegistradoPayload(Record):

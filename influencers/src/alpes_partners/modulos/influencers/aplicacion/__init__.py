@@ -11,7 +11,7 @@ dispatcher.connect(HandlerInfluencerIntegracion.handle_influencer_registrado, si
 # Importar saga solo cuando se necesite (lazy loading)
 # La saga se registrará cuando se importe explícitamente
 try:
-    from ...sagas.aplicacion.coordinadores import saga_reservas
+    from ...sagas.aplicacion.coordinadores import saga_alpes_partners
     print("SAGA: Handlers de saga registrados exitosamente")
 except ImportError as e:
     print(f"SAGA: Saga no disponible (dependencias faltantes): {e}")

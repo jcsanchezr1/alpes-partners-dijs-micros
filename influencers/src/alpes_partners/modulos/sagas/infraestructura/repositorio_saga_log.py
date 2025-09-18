@@ -25,10 +25,7 @@ class SagaLogModelo(Base):
     id_correlacion = Column(String, nullable=False, index=True)
     evento_tipo = Column(String, nullable=False)
     evento_datos = Column(Text, nullable=False)  # JSON serializado
-    comando_tipo = Column(String, nullable=True)
-    comando_datos = Column(Text, nullable=True)  # JSON serializado
     paso_index = Column(Integer, nullable=True)
-    estado = Column(String, nullable=False, default='pendiente')
     fecha_procesamiento = Column(DateTime, nullable=False)
     fecha_creacion = Column(DateTime, nullable=False)
     fecha_actualizacion = Column(DateTime, nullable=False)
@@ -50,10 +47,7 @@ class RepositorioSagaLogSQLAlchemy(RepositorioSagaLog):
         saga_log_modelo.id_correlacion = saga_log.id_correlacion
         saga_log_modelo.evento_tipo = saga_log.evento_tipo
         saga_log_modelo.evento_datos = json.dumps(saga_log.evento_datos)
-        saga_log_modelo.comando_tipo = saga_log.comando_tipo
-        saga_log_modelo.comando_datos = json.dumps(saga_log.comando_datos) if saga_log.comando_datos else None
         saga_log_modelo.paso_index = saga_log.paso_index
-        saga_log_modelo.estado = saga_log.estado
         saga_log_modelo.fecha_procesamiento = saga_log.fecha_procesamiento
         saga_log_modelo.fecha_creacion = saga_log.fecha_creacion
         saga_log_modelo.fecha_actualizacion = saga_log.fecha_actualizacion
@@ -77,10 +71,7 @@ class RepositorioSagaLogSQLAlchemy(RepositorioSagaLog):
                 id_correlacion=modelo.id_correlacion,
                 evento_tipo=modelo.evento_tipo,
                 evento_datos=json.loads(modelo.evento_datos),
-                comando_tipo=modelo.comando_tipo,
-                comando_datos=json.loads(modelo.comando_datos) if modelo.comando_datos else None,
                 paso_index=modelo.paso_index,
-                estado=modelo.estado,
                 fecha_procesamiento=modelo.fecha_procesamiento
             )
             entrada.id = modelo.id
@@ -104,10 +95,7 @@ class RepositorioSagaLogSQLAlchemy(RepositorioSagaLog):
             id_correlacion=modelo.id_correlacion,
             evento_tipo=modelo.evento_tipo,
             evento_datos=json.loads(modelo.evento_datos),
-            comando_tipo=modelo.comando_tipo,
-            comando_datos=json.loads(modelo.comando_datos) if modelo.comando_datos else None,
             paso_index=modelo.paso_index,
-            estado=modelo.estado,
             fecha_procesamiento=modelo.fecha_procesamiento
         )
         entrada.id = modelo.id
@@ -123,9 +111,6 @@ class RepositorioSagaLogSQLAlchemy(RepositorioSagaLog):
         ).first()
         
         if modelo:
-            modelo.estado = saga_log.estado
-            modelo.comando_tipo = saga_log.comando_tipo
-            modelo.comando_datos = json.dumps(saga_log.comando_datos) if saga_log.comando_datos else None
             modelo.fecha_actualizacion = saga_log.fecha_actualizacion
             db.session.flush()
     

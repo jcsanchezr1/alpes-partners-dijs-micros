@@ -76,25 +76,48 @@ class EventoDominioContratoCreado(EventoDominio):
 class CoordinadorInfluencersCampanasContratos:
     """Coordinador de saga para orquestar influencers, campañas y contratos."""
     
+    # Variable de clase para mantener el mismo id_correlacion durante toda la saga
+    _id_correlacion_global = None
+    
     def __init__(self):
-        self.id_correlacion = str(uuid.uuid4())
+        # Usar el mismo id_correlacion para toda la saga
+        if CoordinadorInfluencersCampanasContratos._id_correlacion_global is None:
+            CoordinadorInfluencersCampanasContratos._id_correlacion_global = str(uuid.uuid4())
+        
+        self.id_correlacion = CoordinadorInfluencersCampanasContratos._id_correlacion_global
         self.repositorio_saga_log = RepositorioSagaLogSQLAlchemy()
         logger.info(f"SAGA: Iniciando coordinador con correlación: {self.id_correlacion}")
     
-    def persistir_en_saga_log(self, evento: EventoDominio, comando: Comando = None, paso_index: int = None, estado: str = "pendiente"):
-        """Persistir estado en DB usando el repositorio de saga log."""
+    @classmethod
+    def reset_correlacion(cls):
+        """Resetear el id_correlacion para una nueva saga."""
+        cls._id_correlacion_global = None
+    
+    def persistir_en_saga_log(self, evento: EventoDominio, paso_index: int = None):
+        """Persistir evento en DB usando el repositorio de saga log (un registro por evento)."""
         logger.info(f"SAGA: Persistiendo en log - Evento: {type(evento).__name__}")
         
         try:
+            # Verificar si ya existe un registro para este evento en esta correlación
+            entradas_existentes = self.repositorio_saga_log.obtener_por_correlacion(self.id_correlacion)
+            
+            # Buscar si ya existe un registro para este tipo de evento
+            evento_ya_registrado = any(
+                entrada.evento_tipo == type(evento).__name__ and 
+                entrada.paso_index == paso_index
+                for entrada in entradas_existentes
+            )
+            
+            if evento_ya_registrado:
+                logger.info(f"SAGA: Evento {type(evento).__name__} ya registrado, saltando duplicado")
+                return
+            
             # Crear entrada del saga log
             saga_log = SagaLog(
                 id_correlacion=self.id_correlacion,
                 evento_tipo=type(evento).__name__,
                 evento_datos=evento.to_dict() if hasattr(evento, 'to_dict') else {},
-                comando_tipo=type(comando).__name__ if comando else None,
-                comando_datos=comando.__dict__ if comando else None,
                 paso_index=paso_index,
-                estado=estado,
                 fecha_procesamiento=datetime.utcnow()
             )
             
@@ -182,23 +205,18 @@ class CoordinadorInfluencersCampanasContratos:
         
         try:
             # 1. Persistir el evento en el log
-            self.persistir_en_saga_log(evento, paso_index=1, estado="procesando")
+            self.persistir_en_saga_log(evento, paso_index=1)
             
             # 2. Construir y ejecutar comando para crear campaña
             comando_campana = self.construir_comando(evento, RegistrarCampana)
-            self.persistir_en_saga_log(evento, comando_campana, paso_index=1, estado="comando_creado")
             
             # 3. Ejecutar el comando
             ejecutar_commando(comando_campana)
-            
-            # 4. Marcar como completado
-            self.persistir_en_saga_log(evento, comando_campana, paso_index=1, estado="completado")
             
             logger.info(f"SAGA: InfluencerRegistrado procesado exitosamente")
             
         except Exception as e:
             logger.error(f"SAGA: Error procesando InfluencerRegistrado: {e}")
-            self.persistir_en_saga_log(evento, paso_index=1, estado="error")
             raise
     
     def procesar_evento_campana_creada(self, evento: EventoDominioCampanaCreada):
@@ -209,27 +227,21 @@ class CoordinadorInfluencersCampanasContratos:
             # Solo crear contrato si hay información del influencer
             if not evento.influencer_id:
                 logger.info(f"SAGA: CampanaCreada sin influencer asociado, saltando creación de contrato")
-                self.persistir_en_saga_log(evento, paso_index=2, estado="saltado")
                 return
             
             # 1. Persistir el evento en el log
-            self.persistir_en_saga_log(evento, paso_index=2, estado="procesando")
+            self.persistir_en_saga_log(evento, paso_index=2)
             
             # 2. Construir y ejecutar comando para crear contrato
             comando_contrato = self.construir_comando(evento, CrearContrato)
-            self.persistir_en_saga_log(evento, comando_contrato, paso_index=2, estado="comando_creado")
             
             # 3. Ejecutar el comando
             ejecutar_commando(comando_contrato)
-            
-            # 4. Marcar como completado
-            self.persistir_en_saga_log(evento, comando_contrato, paso_index=2, estado="completado")
             
             logger.info(f"SAGA: CampanaCreada procesado exitosamente")
             
         except Exception as e:
             logger.error(f"SAGA: Error procesando CampanaCreada: {e}")
-            self.persistir_en_saga_log(evento, paso_index=2, estado="error")
             raise
     
     def procesar_evento_contrato_creado(self, evento: EventoDominioContratoCreado):
@@ -238,13 +250,12 @@ class CoordinadorInfluencersCampanasContratos:
         
         try:
             # 1. Persistir el evento en el log (final de la saga)
-            self.persistir_en_saga_log(evento, paso_index=3, estado="saga_completada")
+            self.persistir_en_saga_log(evento, paso_index=3)
             
             logger.info(f"SAGA: ContratoCreado procesado exitosamente - Saga completada")
             
         except Exception as e:
             logger.error(f"SAGA: Error procesando ContratoCreado: {e}")
-            self.persistir_en_saga_log(evento, paso_index=3, estado="error")
             raise
 
 
@@ -254,6 +265,10 @@ def oir_mensaje(mensaje):
     logger.info(f"SAGA: Recibiendo mensaje de tipo: {type(mensaje).__name__}")
     
     try:
+        # Si es el primer evento de la saga (InfluencerRegistrado), resetear correlación
+        if isinstance(mensaje, InfluencerRegistrado):
+            CoordinadorInfluencersCampanasContratos.reset_correlacion()
+        
         coordinador = CoordinadorInfluencersCampanasContratos()
         
         if isinstance(mensaje, InfluencerRegistrado):
