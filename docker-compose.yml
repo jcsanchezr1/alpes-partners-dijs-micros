@@ -97,7 +97,9 @@ services:
 
   # Servicio de Saga (Coordinador)
   saga:
-    build: ./influencers
+    build:
+      context: ./influencers
+      dockerfile: Dockerfile.saga
     ports:
       - "8084:8084"
     environment:
@@ -115,7 +117,6 @@ services:
       - contratos
     volumes:
       - ./influencers:/app
-    command: python run_saga.py
     networks:
       - app
 
