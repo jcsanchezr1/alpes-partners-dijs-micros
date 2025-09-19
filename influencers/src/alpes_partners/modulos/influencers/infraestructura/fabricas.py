@@ -29,7 +29,7 @@ class FabricaRepositorioInfluencers:
     """Fábrica para crear repositorios de influencers."""
     
     def crear_objeto(self, obj: type, mapeador: Any = None) -> RepositorioInfluencersSQLAlchemy:
-        if obj == RepositorioInfluencersSQLAlchemy.__class__:
+        if obj == RepositorioInfluencersSQLAlchemy:
             # Crear una instancia del repositorio SIN sesión (como en el tutorial)
             # El repositorio usará db.session directamente
             return RepositorioInfluencersSQLAlchemy()

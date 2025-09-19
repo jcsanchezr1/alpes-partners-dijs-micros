@@ -6,8 +6,9 @@ Publica eventos cuando se crean campanas para que otros microservicios puedan re
 import pulsar
 from pulsar.schema import AvroSchema
 import datetime
+import uuid
 from alpes_partners.modulos.campanas.infraestructura.schema.eventos import (
-    EventoCampanaCreada, CampanaCreadaPayload
+    EventoCampanaCreada, CampanaCreadaPayload, EventoCampanaEliminada, CampanaEliminadaPayload
 )
 from alpes_partners.seedwork.infraestructura import utils
 
@@ -83,3 +84,35 @@ class DespachadorCampanas:
         )
         
         self._publicar_mensaje(evento_integracion, topico, AvroSchema(EventoCampanaCreada))
+    
+    def publicar_evento_campana_eliminada(self, campana_id: str, influencer_id: str, razon: str, topico='eventos-campanas-eliminacion'):
+        """Publica evento cuando una campaña es eliminada."""
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"CAMPANAS DESPACHADOR: Publicando evento de eliminación de campaña")
+        logger.info(f"  - campana_id: {campana_id}")
+        logger.info(f"  - influencer_id: {influencer_id}")
+        logger.info(f"  - razon: {razon}")
+        
+        # Crear payload del evento de eliminación
+        payload = CampanaEliminadaPayload(
+            campana_id=str(campana_id),
+            influencer_id=str(influencer_id),
+            razon=str(razon),
+            fecha_eliminacion=datetime.datetime.utcnow().isoformat()
+        )
+        
+        # Crear evento de integración
+        evento_integracion = EventoCampanaEliminada(
+            id=str(uuid.uuid4()),
+            time=unix_time_millis(datetime.datetime.utcnow()),
+            ingestion=unix_time_millis(datetime.datetime.utcnow()),
+            specversion="1.0",
+            type="CampanaEliminada",
+            datacontenttype="application/json",
+            service_name="alpes-partners-campanas",
+            data=payload
+        )
+        
+        self._publicar_mensaje(evento_integracion, topico, AvroSchema(EventoCampanaEliminada))

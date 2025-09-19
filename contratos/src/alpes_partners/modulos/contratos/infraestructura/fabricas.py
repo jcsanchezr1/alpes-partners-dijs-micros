@@ -29,7 +29,7 @@ class FabricaRepositorioContratos:
     """Fábrica para crear repositorios de contratos."""
     
     def crear_objeto(self, obj: type, mapeador: Any = None) -> RepositorioContratosSQLAlchemy:
-        if obj == RepositorioContratosSQLAlchemy.__class__:
+        if obj == RepositorioContratosSQLAlchemy:
             # Crear una instancia del repositorio SIN sesión (como en el tutorial)
             # El repositorio usará db.session directamente
             return RepositorioContratosSQLAlchemy()

@@ -1,10 +1,13 @@
 from abc import ABC, abstractmethod
 from enum import Enum
+import logging
 
 from ..dominio.entidades import AgregacionRaiz
 from pydispatch import dispatcher
 
 import pickle
+
+logger = logging.getLogger(__name__)
 
 
 class Lock(Enum):
@@ -68,8 +71,12 @@ class UnidadTrabajo(ABC):
             dispatcher.send(signal=f'{type(evento).__name__}Dominio', evento=evento)
 
     def _publicar_eventos_post_commit(self):
-        for evento in self._obtener_eventos():
-            dispatcher.send(signal=f'{type(evento).__name__}Integracion', evento=evento)
+        eventos = self._obtener_eventos()
+        logger.info(f"UoW: Publicando {len(eventos)} eventos post-commit")
+        for evento in eventos:
+            signal = f'{type(evento).__name__}Integracion'
+            logger.info(f"UoW: Enviando evento {type(evento).__name__} con señal {signal}")
+            dispatcher.send(signal=signal, evento=evento)
 
 def is_flask():
     try:

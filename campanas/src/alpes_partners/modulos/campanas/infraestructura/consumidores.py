@@ -20,6 +20,7 @@ from alpes_partners.config.app import crear_app_minima
 from alpes_partners.seedwork.infraestructura import utils
 from alpes_partners.modulos.campanas.infraestructura.schema.eventos import EventoInfluencerRegistrado
 from alpes_partners.modulos.campanas.aplicacion.comandos.crear_campana import RegistrarCampana, ejecutar_comando_registrar_campana
+from alpes_partners.modulos.campanas.aplicacion.comandos.eliminar_campana import EliminarCampana, ejecutar_comando_eliminar_campana
 
 # Crear instancia de aplicación Flask para el contexto
 app = crear_app_minima()
@@ -27,22 +28,73 @@ app = crear_app_minima()
 
 def suscribirse_a_eventos_influencers_desde_campanas():
     """
-    Suscribirse a eventos de influencers para crear campanas automáticamente.
+    DESHABILITADO: Suscribirse a eventos de influencers para crear campanas automáticamente.
+    Ahora las campañas se crean solo a través de comandos de la saga.
+    """
+    logger.info("CAMPANAS: Consumidor directo de influencers DESHABILITADO - Solo procesar comandos de saga")
+    return
+    
+    # CÓDIGO COMENTADO - Las campañas ahora se crean solo a través de comandos de la saga
+    # cliente = None
+    # try:
+    #     logger.info("CAMPANAS: Conectando a Pulsar...")
+    #     cliente = pulsar.Client(f'pulsar://{utils.broker_host()}:6650')
+    #     
+    #     # Consumidor para eventos de influencers
+    #     consumidor = cliente.subscribe(
+    #         'eventos-influencers', 
+    #         consumer_type=_pulsar.ConsumerType.Shared,
+    #         subscription_name='campanas-sub-eventos-influencers', 
+    #         schema=AvroSchema(EventoInfluencerRegistrado)
+    #     )
+
+    #     logger.info("CAMPANAS: Suscrito a eventos de influencers")
+    #     logger.info("CAMPANAS: Esperando eventos...")
+    #     
+    #     while True:
+    #         try:
+    #             mensaje = consumidor.receive()
+    #             logger.info(f"CAMPANAS: Evento recibido - {mensaje.value()}")
+    #             
+    #             # Procesar evento
+    #             _procesar_evento_influencer(mensaje.value())
+    #             
+    #             # Confirmar procesamiento
+    #             consumidor.acknowledge(mensaje)
+    #             logger.info("CAMPANAS: Evento procesado y confirmado")
+    #             
+    #         except Exception as e:
+    #             logger.error(f"CAMPANAS: Error procesando evento: {e}")
+    #             time.sleep(5)  # Esperar antes de continuar
+    #             
+    # except Exception as e:
+    #     logger.error(f"CAMPANAS: Error en consumidor: {e}")
+    # finally:
+    #     if cliente:
+    #         cliente.close()
+
+
+def suscribirse_a_eventos_eliminacion_campana():
+    """
+    Suscribirse a eventos de eliminación de campaña para compensación.
     """
     cliente = None
     try:
-        logger.info("CAMPANAS: Conectando a Pulsar...")
+        logger.info("CAMPANAS: Conectando a Pulsar para eventos de eliminación de campaña...")
         cliente = pulsar.Client(f'pulsar://{utils.broker_host()}:6650')
         
-        # Consumidor para eventos de influencers
+        # Importar esquema de eventos
+        from alpes_partners.modulos.campanas.infraestructura.schema.eventos import EventoCampanaEliminacionRequerida
+        
+        # Consumidor para eventos de eliminación de campaña
         consumidor = cliente.subscribe(
-            'eventos-influencers', 
+            'eventos-campanas-eliminacion', 
             consumer_type=_pulsar.ConsumerType.Shared,
-            subscription_name='campanas-sub-eventos-influencers', 
-            schema=AvroSchema(EventoInfluencerRegistrado)
+            subscription_name='campanas-sub-eventos-eliminacion', 
+            schema=AvroSchema(EventoCampanaEliminacionRequerida)
         )
 
-        logger.info("CAMPANAS: Suscrito a eventos de influencers")
+        logger.info("CAMPANAS: Suscrito a eventos de eliminación de campaña")
         logger.info("CAMPANAS: Esperando eventos...")
         
         while True:
@@ -51,7 +103,7 @@ def suscribirse_a_eventos_influencers_desde_campanas():
                 logger.info(f"CAMPANAS: Evento recibido - {mensaje.value()}")
                 
                 # Procesar evento
-                _procesar_evento_influencer(mensaje.value())
+                _procesar_evento_eliminacion_campana(mensaje.value())
                 
                 # Confirmar procesamiento
                 consumidor.acknowledge(mensaje)
@@ -62,10 +114,49 @@ def suscribirse_a_eventos_influencers_desde_campanas():
                 time.sleep(5)  # Esperar antes de continuar
                 
     except Exception as e:
-        logger.error(f"CAMPANAS: Error en consumidor: {e}")
+        logger.error(f"CAMPANAS: Error en consumidor de eventos: {e}")
     finally:
         if cliente:
             cliente.close()
+
+
+def _procesar_evento_eliminacion_campana(evento):
+    """
+    Procesa un evento de eliminación de campaña requerida.
+    """
+    with app.app_context():
+        try:
+            logger.info("CAMPANAS: Procesando evento de eliminación de campaña")
+            
+            # Extraer datos del evento
+            if hasattr(evento, 'data'):
+                data = evento.data
+                logger.info(f"CAMPANAS: Datos del evento: {data}")
+                
+                # Crear comando de eliminar campaña desde el evento de integración
+                comando = EliminarCampana(
+                    campana_id=str(data.campana_id),
+                    influencer_id=str(data.influencer_id),
+                    razon=str(data.razon)
+                )
+                
+                logger.info(f"CAMPANAS: Comando EliminarCampana creado desde evento:")
+                logger.info(f"  - Campaña ID: {comando.campana_id}")
+                logger.info(f"  - Influencer ID: {comando.influencer_id}")
+                logger.info(f"  - Razón: {comando.razon}")
+                
+                # Ejecutar comando de dominio
+                ejecutar_comando_eliminar_campana(comando)
+                
+                logger.info(f"CAMPANAS: Campaña {comando.campana_id} eliminada exitosamente por compensación")
+                
+            else:
+                logger.error("CAMPANAS: Evento sin datos válidos")
+                
+        except Exception as e:
+            logger.error(f"CAMPANAS: Error procesando evento de eliminación de campaña: {e}")
+            import traceback
+            logger.error(f"CAMPANAS: Traceback: {traceback.format_exc()}")
 
 
 def _procesar_evento_influencer(evento):

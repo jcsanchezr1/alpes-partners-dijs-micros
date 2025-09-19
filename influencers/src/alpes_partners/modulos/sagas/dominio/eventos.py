@@ -63,3 +63,43 @@ class ContratoCreado(EventoIntegracion):
         self.fecha_fin = fecha_fin
         self.tipo_contrato = tipo_contrato
         self.fecha_creacion = fecha_creacion
+
+
+class ErrorCreacionCampana(EventoDominio):
+    """Evento de error cuando falla la creación de campaña."""
+    
+    def __init__(self, influencer_id: str, error: str):
+        super().__init__()
+        self.influencer_id = influencer_id
+        self.error = error
+
+
+class ErrorCreacionContrato(EventoDominio):
+    """Evento de error cuando falla la creación de contrato."""
+    
+    def __init__(self, campana_id: str, error: str):
+        super().__init__()
+        self.campana_id = campana_id
+        self.error = error
+
+
+class CompensacionEjecutada(EventoDominio):
+    """Evento que indica que una compensación fue ejecutada exitosamente."""
+    
+    def __init__(self, comando: str, campana_id: str, influencer_id: str, razon: str, fecha_ejecucion: datetime):
+        super().__init__()
+        self.comando = comando
+        self.campana_id = campana_id
+        self.influencer_id = influencer_id
+        self.razon = razon
+        self.fecha_ejecucion = fecha_ejecucion
+
+
+class CampanaEliminacionRequerida(EventoIntegracion):
+    """Evento de integración para solicitar eliminación de campaña (compensación)."""
+    
+    def __init__(self, campana_id: str, influencer_id: str, razon: str):
+        super().__init__()
+        self.campana_id = campana_id
+        self.influencer_id = influencer_id
+        self.razon = razon

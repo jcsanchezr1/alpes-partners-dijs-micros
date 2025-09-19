@@ -45,3 +45,29 @@ class CampanaCreadaPayload(Record):
 class EventoCampanaCreada(EventoIntegracion):
     """Evento de integración para campaña creada."""
     data = CampanaCreadaPayload()
+
+
+class CampanaEliminadaPayload(Record):
+    """Payload del evento CampanaEliminada que campanas publica."""
+    campana_id = String()
+    influencer_id = String()
+    razon = String()
+    fecha_eliminacion = String()
+
+
+class EventoCampanaEliminada(EventoIntegracion):
+    """Evento de integración para campaña eliminada."""
+    data = CampanaEliminadaPayload()
+
+
+class CampanaEliminacionRequeridaPayload(Record):
+    """Payload del evento de eliminación de campaña requerida que campanas consume."""
+    campana_id = String()
+    influencer_id = String()
+    razon = String()
+    fecha_solicitud = String()
+
+
+class EventoCampanaEliminacionRequerida(EventoIntegracion):
+    """Evento de integración para solicitar eliminación de campaña."""
+    data = CampanaEliminacionRequeridaPayload()

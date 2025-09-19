@@ -35,3 +35,8 @@ class EstadoCampanaInvalidoExcepcion(ExcepcionDominioCampanas):
 class ParametrosCampanaInvalidosExcepcion(ExcepcionDominioCampanas):
     """Excepción lanzada cuando los parámetros de la campana son inválidos"""
     pass
+
+
+class CampanaNoExisteExcepcion(ExcepcionDominioCampanas):
+    """Excepción lanzada cuando se intenta eliminar una campaña que no existe"""
+    pass

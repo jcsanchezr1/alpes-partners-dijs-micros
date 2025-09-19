@@ -17,6 +17,7 @@ sys.path.insert(0, src_path)
 import logging
 from alpes_partners.config.settings import settings
 from alpes_partners.modulos.contratos.infraestructura.consumidores import suscribirse_a_eventos_campanas_desde_contratos
+from alpes_partners.modulos.contratos.infraestructura.consumidores_comandos import suscribirse_a_comandos_contratos
 
 # Configurar logging
 logging.basicConfig(
@@ -45,6 +46,14 @@ def start_consumer():
     except Exception as e:
         logger.error(f"Error en el consumidor de eventos: {e}")
 
+def start_command_consumer():
+    """Inicia el consumidor de comandos en un hilo separado."""
+    try:
+        logger.info("Iniciando consumidor de comandos...")
+        suscribirse_a_comandos_contratos()
+    except Exception as e:
+        logger.error(f"Error en el consumidor de comandos: {e}")
+
 def main():
     """Función principal del microservicio."""
     logger.info(f"Iniciando {settings.app_name} v{settings.app_version}")
@@ -54,10 +63,15 @@ def main():
     port = int(os.environ.get('PORT', 8080))
     
     try:
-        # Iniciar consumidor en hilo daemon
+        # Iniciar consumidor de eventos en hilo daemon
         consumer_thread = threading.Thread(target=start_consumer, daemon=True)
         consumer_thread.start()
         logger.info("Consumidor de eventos iniciado")
+        
+        # Iniciar consumidor de comandos en hilo daemon
+        command_consumer_thread = threading.Thread(target=start_command_consumer, daemon=True)
+        command_consumer_thread.start()
+        logger.info("Consumidor de comandos iniciado")
         
         # Iniciar servidor HTTP
         logger.info(f"Servidor HTTP iniciado en puerto {port}")

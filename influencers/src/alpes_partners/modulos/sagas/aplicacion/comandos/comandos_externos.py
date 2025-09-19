@@ -38,6 +38,25 @@ class RegistrarCampana(Comando):
 
 
 @dataclass
+class EliminarCampana(Comando):
+    """Comando para eliminar una campaña (compensación)."""
+    campana_id: str
+    influencer_id: Optional[str] = None  # Opcional para compensación
+    razon: str = "Compensación por falla en saga"
+    
+    def to_dict(self):
+        """Convertir comando a diccionario para serialización."""
+        return {
+            'campana_id': self.campana_id,
+            'influencer_id': self.influencer_id or '',
+            'razon': self.razon,
+            'tipo_comando': 'EliminarCampana',
+            'fecha_creacion': getattr(self, 'fecha_creacion', ''),
+            'fecha_actualizacion': getattr(self, 'fecha_actualizacion', '')
+        }
+
+
+@dataclass
 class CrearContrato(Comando):
     """Comando para crear un nuevo contrato (se enviará al microservicio contratos)."""
     fecha_creacion: str

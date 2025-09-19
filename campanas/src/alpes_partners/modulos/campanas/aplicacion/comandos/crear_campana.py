@@ -52,7 +52,7 @@ class RegistrarCampanaHandler(RegistrarCampanaBaseHandler):
         logger.info(f"COMANDO HANDLER: Iniciando registro de campana - Nombre: {comando.nombre}")
         
         # Crear repositorio para validaciones de dominio
-        repositorio = self.fabrica_repositorio.crear_objeto(RepositorioCampanasSQLAlchemy.__class__)
+        repositorio = self.fabrica_repositorio.crear_objeto(RepositorioCampanasSQLAlchemy)
         
         # VALIDACIÓN DE DOMINIO: Verificar unicidad del nombre ANTES de crear la entidad
         logger.info(f"COMANDO HANDLER: Verificando unicidad del nombre: {comando.nombre}")

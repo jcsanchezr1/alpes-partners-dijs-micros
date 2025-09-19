@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, Float, DateTime, Text, JSON, Boolean
+from sqlalchemy import Column, String, Integer, Float, DateTime, Text, JSON, Boolean, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -11,6 +11,9 @@ class ContratoModelo(Base):
     """Modelo SQLAlchemy para Contrato."""
     
     __tablename__ = "contratos"
+    __table_args__ = (
+        UniqueConstraint('influencer_id', 'campana_id', name='uq_contratos_influencer_campana'),
+    )
     
     # Campos básicos del contrato
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

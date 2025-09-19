@@ -12,8 +12,8 @@ from .....seedwork.dominio.eventos import EventoDominio, EventoIntegracion
 from ....influencers.dominio.eventos import InfluencerRegistrado
 
 # Importar eventos y comandos locales (para evitar dependencias entre microservicios)
-from ...dominio.eventos import CampanaCreada, ContratoCreado
-from ..comandos.comandos_externos import RegistrarCampana, CrearContrato
+from ...dominio.eventos import CampanaCreada, ContratoCreado, ErrorCreacionCampana, ErrorCreacionContrato, CompensacionEjecutada
+from ..comandos.comandos_externos import RegistrarCampana, CrearContrato, EliminarCampana
 
 # Importar clases base para saga
 from .....seedwork.aplicacion.sagas import CoordinadorOrquestacion, Transaccion, Inicio, Fin
@@ -77,34 +77,10 @@ class EventoDominioContratoCreado(EventoDominio):
         self.fecha_creacion = evento_integracion.fecha_creacion
 
 
-# Eventos de error para la saga
-class ErrorCreacionCampana(EventoDominio):
-    """Evento de error cuando falla la creación de campaña."""
-    
-    def __init__(self, influencer_id: str, error: str):
-        super().__init__()
-        self.influencer_id = influencer_id
-        self.error = error
-
-
-class ErrorCreacionContrato(EventoDominio):
-    """Evento de error cuando falla la creación de contrato."""
-    
-    def __init__(self, campana_id: str, error: str):
-        super().__init__()
-        self.campana_id = campana_id
-        self.error = error
+# Eventos de error para la saga - ahora importados desde dominio.eventos
 
 
 # Comandos de compensación
-@dataclass
-class EliminarCampana(Comando):
-    """Comando para eliminar una campaña (compensación)."""
-    campana_id: str
-    influencer_id: str
-    razon: str = "Compensación por falla en saga"
-
-
 @dataclass
 class EliminarContrato(Comando):
     """Comando para eliminar un contrato (compensación)."""
@@ -116,10 +92,22 @@ class EliminarContrato(Comando):
 class CoordinadorInfluencersCampanasContratos(CoordinadorOrquestacion):
     """Coordinador de saga para orquestar influencers, campañas y contratos."""
     
-    # Variable de clase para mantener el mismo id_correlacion durante toda la saga
+    # Instancia singleton
+    _instancia = None
     _id_correlacion_global = None
     
+    def __new__(cls):
+        if cls._instancia is None:
+            cls._instancia = super().__new__(cls)
+            # Inicializar solo una vez cuando se crea la instancia
+            cls._instancia._inicializado = False
+        return cls._instancia
+    
     def __init__(self):
+        # Solo inicializar una vez
+        if hasattr(self, '_inicializado') and self._inicializado:
+            return
+            
         # Usar el mismo id_correlacion para toda la saga
         if CoordinadorInfluencersCampanasContratos._id_correlacion_global is None:
             CoordinadorInfluencersCampanasContratos._id_correlacion_global = str(uuid.uuid4())
@@ -128,7 +116,11 @@ class CoordinadorInfluencersCampanasContratos(CoordinadorOrquestacion):
         self.repositorio_saga_log = RepositorioSagaLogSQLAlchemy()
         self.pasos = []
         self.index = 0
+        # Contexto de la saga para compensación
+        self.contexto_influencer = None
+        self.contexto_campana = None
         self.inicializar_pasos()
+        self._inicializado = True
         logger.info(f"SAGA: Iniciando coordinador con correlación: {self.id_correlacion}")
     
     def inicializar_pasos(self):
@@ -167,7 +159,13 @@ class CoordinadorInfluencersCampanasContratos(CoordinadorOrquestacion):
         self.persistir_en_saga_log(self.pasos[-1])
         logger.info(f"SAGA: Saga terminada con correlación: {self.id_correlacion}")
     
-    def persistir_en_saga_log(self, evento: EventoDominio, paso_index: int = None):
+    def terminar_con_error(self, error: str):
+        """Terminar la saga con error."""
+        logger.error(f"SAGA: Saga terminada con error: {error}")
+        logger.error(f"SAGA: Correlación: {self.id_correlacion}")
+        # Aquí podrías persistir el estado de error en el log si es necesario
+    
+    def persistir_en_saga_log(self, evento, paso_index: int = None):
         """Persistir evento en DB usando el repositorio de saga log (un registro por evento)."""
         logger.info(f"SAGA: Persistiendo en log - Evento: {type(evento).__name__}")
         
@@ -186,11 +184,19 @@ class CoordinadorInfluencersCampanasContratos(CoordinadorOrquestacion):
                 logger.info(f"SAGA: Evento {type(evento).__name__} ya registrado, saltando duplicado")
                 return
             
+            # Preparar datos del evento
+            if hasattr(evento, 'to_dict'):
+                evento_datos = evento.to_dict()
+            elif isinstance(evento, dict):
+                evento_datos = evento
+            else:
+                evento_datos = {}
+            
             # Crear entrada del saga log
             saga_log = SagaLog(
                 id_correlacion=self.id_correlacion,
                 evento_tipo=type(evento).__name__,
-                evento_datos=evento.to_dict() if hasattr(evento, 'to_dict') else {},
+                evento_datos=evento_datos,
                 paso_index=paso_index,
                 fecha_procesamiento=datetime.utcnow()
             )
@@ -219,7 +225,7 @@ class CoordinadorInfluencersCampanasContratos(CoordinadorOrquestacion):
                     id=str(uuid.uuid4()),
                     nombre=f"Campaña de bienvenida para {evento.nombre}",
                     descripcion=f"Campaña automática creada para el influencer {evento.nombre}",
-                    tipo_comision="fijo",
+                    tipo_comision="cpa",
                     valor_comision=100.0,
                     moneda="USD",
                     fecha_inicio=datetime.utcnow().isoformat(),
@@ -268,12 +274,32 @@ class CoordinadorInfluencersCampanasContratos(CoordinadorOrquestacion):
             # Comandos de compensación
             elif isinstance(evento, ErrorCreacionContrato) and tipo_comando == EliminarCampana:
                 # Si falla la creación del contrato, eliminar la campaña
+                logger.info(f"SAGA: DEBUG - Contexto influencer: {self.contexto_influencer}")
+                influencer_id = self.contexto_influencer.get('influencer_id', '') if self.contexto_influencer else ''
+                
+                # Si no tenemos el influencer_id del contexto, intentar obtenerlo del saga log
+                if not influencer_id:
+                    logger.warning(f"SAGA: No se encontró influencer_id en contexto, buscando en saga log")
+                    entradas_existentes = self.repositorio_saga_log.obtener_por_correlacion(self.id_correlacion)
+                    for entrada in entradas_existentes:
+                        if entrada.evento_tipo == 'EventoDominioInfluencerRegistrado':
+                            datos = entrada.evento_datos
+                            if isinstance(datos, dict) and 'influencer_id' in datos:
+                                influencer_id = datos['influencer_id']
+                                logger.info(f"SAGA: Influencer_id encontrado en saga log: {influencer_id}")
+                                break
+                
+                # Si aún no tenemos influencer_id, usar None (opcional para compensación)
+                if not influencer_id:
+                    logger.warning(f"SAGA: No se pudo obtener influencer_id, procediendo sin él")
+                    influencer_id = None
+                
                 comando = EliminarCampana(
                     campana_id=evento.campana_id,
-                    influencer_id="",  # Se puede obtener del contexto de la saga
+                    influencer_id=influencer_id,
                     razon=f"Compensación por error en creación de contrato: {evento.error}"
                 )
-                logger.info(f"SAGA: Comando EliminarCampana construido para compensación")
+                logger.info(f"SAGA: Comando EliminarCampana construido para compensación - Campaña: {evento.campana_id}, Influencer: {influencer_id or 'N/A'}")
                 return comando
             
             elif isinstance(evento, ErrorCreacionCampana) and tipo_comando == EliminarContrato:
@@ -294,6 +320,13 @@ class CoordinadorInfluencersCampanasContratos(CoordinadorOrquestacion):
         logger.info(f"SAGA: Procesando InfluencerRegistrado para {evento.nombre}")
         
         try:
+            # Guardar contexto del influencer para compensación
+            self.contexto_influencer = {
+                'influencer_id': evento.influencer_id,
+                'nombre': evento.nombre,
+                'email': evento.email
+            }
+            
             # Iniciar la saga
             self.iniciar()
             
@@ -317,6 +350,13 @@ class CoordinadorInfluencersCampanasContratos(CoordinadorOrquestacion):
         logger.info(f"SAGA: Procesando CampanaCreada para {evento.nombre}")
         
         try:
+            # Guardar contexto de la campaña para compensación
+            self.contexto_campana = {
+                'campana_id': evento.campana_id,
+                'nombre': evento.nombre,
+                'influencer_id': evento.influencer_id
+            }
+            
             # Solo crear contrato si hay información del influencer
             if not evento.influencer_id:
                 logger.info(f"SAGA: CampanaCreada sin influencer asociado, saltando creación de contrato")
@@ -328,10 +368,11 @@ class CoordinadorInfluencersCampanasContratos(CoordinadorOrquestacion):
             # 2. Construir y ejecutar comando para crear contrato
             comando_contrato = self.construir_comando(evento, CrearContrato)
             
-            # 3. Ejecutar el comando
+            # 3. Ejecutar el comando (envía evento al microservicio de contratos)
             ejecutar_commando(comando_contrato)
             
-            logger.info(f"SAGA: CampanaCreada procesado exitosamente")
+            # 4. NO marcar como exitoso aquí - esperar respuesta del microservicio de contratos
+            logger.info(f"SAGA: Comando CrearContrato enviado - esperando respuesta del microservicio de contratos")
             
         except Exception as e:
             logger.error(f"SAGA: Error procesando CampanaCreada: {e}")
@@ -352,6 +393,50 @@ class CoordinadorInfluencersCampanasContratos(CoordinadorOrquestacion):
             
         except Exception as e:
             logger.error(f"SAGA: Error procesando ContratoCreado: {e}")
+            raise
+    
+    def procesar_evento_error_contrato(self, evento: ErrorCreacionContrato):
+        """Procesar evento de error de contrato - iniciar compensación."""
+        logger.error(f"SAGA: Procesando ErrorCreacionContrato - Campaña: {evento.campana_id}, Error: {evento.error}")
+        
+        try:
+            # 1. Persistir el evento de error en el log
+            self.persistir_en_saga_log(evento, paso_index=2)
+            
+            # 2. Iniciar compensación - eliminar la campaña creada
+            logger.info(f"SAGA: Iniciando compensación - eliminando campaña {evento.campana_id}")
+            
+            # Construir comando de compensación
+            comando_compensacion = self.construir_comando(evento, EliminarCampana)
+            
+            if comando_compensacion:
+                # Persistir el comando de compensación en el log
+                self.persistir_en_saga_log(comando_compensacion, paso_index=3)
+                
+                # Ejecutar compensación
+                ejecutar_commando(comando_compensacion)
+                logger.info(f"SAGA: Compensación ejecutada exitosamente - Campaña eliminada")
+                
+                # Persistir evento de compensación ejecutada
+                evento_compensacion_ejecutada = CompensacionEjecutada(
+                    comando='EliminarCampana',
+                    campana_id=evento.campana_id,
+                    influencer_id=comando_compensacion.influencer_id,
+                    razon=comando_compensacion.razon,
+                    fecha_ejecucion=datetime.utcnow()
+                )
+                self.persistir_en_saga_log(evento_compensacion_ejecutada, paso_index=4)
+                
+            else:
+                logger.warning(f"SAGA: No se pudo construir comando de compensación")
+            
+            # 3. Marcar saga como fallida
+            self.terminar_con_error(f"Error en creación de contrato: {evento.error}")
+            
+            logger.error(f"SAGA: ErrorCreacionContrato procesado - Compensación ejecutada")
+            
+        except Exception as e:
+            logger.error(f"SAGA: Error procesando ErrorCreacionContrato: {e}")
             raise
 
 
@@ -378,6 +463,11 @@ def oir_mensaje(mensaje):
         elif isinstance(mensaje, ContratoCreado):
             evento_dominio = EventoDominioContratoCreado(mensaje)
             coordinador.procesar_evento_contrato_creado(evento_dominio)
+            
+        elif isinstance(mensaje, ErrorCreacionContrato):
+            logger.error(f"SAGA: Procesando evento de error de contrato - Campaña: {mensaje.campana_id}, Error: {mensaje.error}")
+            logger.error(f"SAGA: Tipo de mensaje: {type(mensaje).__name__}")
+            coordinador.procesar_evento_error_contrato(mensaje)
             
         else:
             logger.warning(f"SAGA: Tipo de evento no soportado: {type(mensaje).__name__}")

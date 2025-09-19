@@ -20,11 +20,11 @@ from alpes_partners.config.app import crear_app_minima
 from alpes_partners.seedwork.infraestructura import utils
 from alpes_partners.modulos.contratos.aplicacion.comandos.crear_contrato import CrearContrato, ejecutar_comando_crear_contrato
 
-# Definir esquema de campaña directamente aquí para compatibilidad
+# Definir esquema de campaña localmente para evitar dependencias circulares
 from pulsar.schema import Record, String, Array, Float
 
 class CampanaCreadaPayload(Record):
-    """Payload del evento de campaña creada."""
+    """Payload del evento de campaña creada - debe coincidir con el esquema de campanas."""
     campana_id = String()
     nombre = String()
     descripcion = String()
@@ -44,7 +44,7 @@ class CampanaCreadaPayload(Record):
     fecha_creacion = String()
 
 class EventoCampanaCreada(Record):
-    """Evento de integración para campaña creada."""
+    """Evento de integración para campaña creada - debe coincidir con el esquema de campanas."""
     data = CampanaCreadaPayload()
 
 # Crear instancia de aplicación Flask para el contexto
@@ -53,45 +53,50 @@ app = crear_app_minima()
 
 def suscribirse_a_eventos_campanas_desde_contratos():
     """
-    Suscribirse a eventos de campañas para crear contratos automáticamente.
+    DESHABILITADO: Suscribirse a eventos de campañas para crear contratos automáticamente.
+    Ahora los contratos se crean solo a través de comandos de la saga.
     """
-    cliente = None
-    try:
-        logger.info("CONTRATOS: Conectando a Pulsar...")
-        cliente = pulsar.Client(f'pulsar://{utils.broker_host()}:6650')
-        
-        # Consumidor para eventos de campañas
-        consumidor = cliente.subscribe(
-            'eventos-campanas', 
-            consumer_type=_pulsar.ConsumerType.Shared,
-            subscription_name='contratos-sub-eventos-campanas', 
-            schema=AvroSchema(EventoCampanaCreada)
-        )
+    logger.info("CONTRATOS: Consumidor directo de campañas DESHABILITADO - Solo procesar comandos de saga")
+    return
+    
+    # CÓDIGO COMENTADO - Los contratos ahora se crean solo a través de comandos de la saga
+    # cliente = None
+    # try:
+    #     logger.info("CONTRATOS: Conectando a Pulsar...")
+    #     cliente = pulsar.Client(f'pulsar://{utils.broker_host()}:6650')
+    #     
+    #     # Consumidor para eventos de campañas
+    #     consumidor = cliente.subscribe(
+    #         'eventos-campanas', 
+    #         consumer_type=_pulsar.ConsumerType.Shared,
+    #         subscription_name='contratos-sub-eventos-campanas', 
+    #         schema=AvroSchema(EventoCampanaCreada)
+    #     )
 
-        logger.info("CONTRATOS: Suscrito a eventos de campañas")
-        logger.info("CONTRATOS: Esperando eventos...")
-        
-        while True:
-            try:
-                mensaje = consumidor.receive()
-                logger.info(f"CONTRATOS: Evento recibido - {mensaje.value()}")
-                
-                # Procesar evento
-                _procesar_evento_campana(mensaje.value())
-                
-                # Confirmar procesamiento
-                consumidor.acknowledge(mensaje)
-                logger.info("CONTRATOS: Evento procesado y confirmado")
-                
-            except Exception as e:
-                logger.error(f"CONTRATOS: Error procesando evento: {e}")
-                time.sleep(5)  # Esperar antes de continuar
-                
-    except Exception as e:
-        logger.error(f"CONTRATOS: Error en consumidor: {e}")
-    finally:
-        if cliente:
-            cliente.close()
+    #     logger.info("CONTRATOS: Suscrito a eventos de campañas")
+    #     logger.info("CONTRATOS: Esperando eventos...")
+    #     
+    #     while True:
+    #         try:
+    #             mensaje = consumidor.receive()
+    #             logger.info(f"CONTRATOS: Evento recibido - {mensaje.value()}")
+    #             
+    #             # Procesar evento
+    #             _procesar_evento_campana(mensaje.value())
+    #             
+    #             # Confirmar procesamiento
+    #             consumidor.acknowledge(mensaje)
+    #             logger.info("CONTRATOS: Evento procesado y confirmado")
+    #             
+    #         except Exception as e:
+    #             logger.error(f"CONTRATOS: Error procesando evento: {e}")
+    #             time.sleep(5)  # Esperar antes de continuar
+    #             
+    # except Exception as e:
+    #     logger.error(f"CONTRATOS: Error en consumidor: {e}")
+    # finally:
+    #     if cliente:
+    #         cliente.close()
 
 
 def _procesar_evento_campana(evento):
@@ -122,6 +127,9 @@ def _procesar_evento_campana(evento):
             logger.error(f"CONTRATOS: Error procesando evento: {e}")
             import traceback
             logger.error(f"CONTRATOS: Traceback: {traceback.format_exc()}")
+            
+            # Publicar evento de error para el saga
+            _publicar_evento_error_contrato(evento, str(e))
 
 
 def _es_evento_creacion_campana(evento):
@@ -205,3 +213,43 @@ def _crear_comando_contrato(datos):
         entregables=datos.get('entregables'),
         tipo_contrato=datos.get('tipo_contrato', 'puntual')
     )
+
+
+def _publicar_evento_error_contrato(evento_campana, error: str):
+    """Publica un evento de error cuando falla la creación del contrato."""
+    try:
+        from alpes_partners.modulos.contratos.infraestructura.despachadores import DespachadorContratos
+        import uuid
+        from datetime import datetime
+        
+        logger.info(f"CONTRATOS: Publicando evento de error de contrato")
+        
+        # Extraer datos del evento de campaña
+        datos = _extraer_datos_evento(evento_campana)
+        
+        # Crear objeto evento de error con los datos necesarios
+        class EventoErrorContrato:
+            def __init__(self, datos, error):
+                self.id = str(uuid.uuid4())
+                self.contrato_id = str(uuid.uuid4())
+                self.influencer_id = datos.get('id_influencer', '')
+                self.campana_id = datos.get('id_campana', '')
+                self.monto_total = datos.get('monto_base', 0.0)
+                self.moneda = datos.get('moneda', 'USD')
+                self.tipo_contrato = datos.get('tipo_contrato', 'puntual')
+                self.fecha_creacion = datetime.utcnow()
+                self.error = error
+                self.error_detalle = f"Error al crear contrato para campaña {datos.get('id_campana', 'N/A')}: {error}"
+        
+        evento_error = EventoErrorContrato(datos, error)
+        
+        # Publicar evento usando el método específico para errores
+        despachador = DespachadorContratos()
+        despachador.publicar_evento_error_contrato(evento_error, "eventos-contratos-error")
+        
+        logger.info(f"CONTRATOS: Evento de error publicado exitosamente en tópico eventos-contratos-error")
+        
+    except Exception as e:
+        logger.error(f"CONTRATOS: Error publicando evento de error: {e}")
+        import traceback
+        logger.error(f"CONTRATOS: Traceback: {traceback.format_exc()}")

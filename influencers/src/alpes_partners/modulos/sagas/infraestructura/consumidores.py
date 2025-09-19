@@ -77,6 +77,23 @@ class EventoContratoCreado(Record):
     """Evento de integración para contrato creado."""
     data = ContratoCreadoPayload()
 
+# Esquemas para eventos de error de contratos
+class ContratoErrorPayload(Record):
+    """Payload del evento de error de contrato."""
+    id_contrato = String()
+    id_influencer = String()
+    id_campana = String()
+    monto_total = Float()
+    moneda = String()
+    tipo_contrato = String()
+    fecha_creacion = String()
+    error = String()
+    error_detalle = String()
+
+class EventoContratoError(Record):
+    """Evento de integración para error de contrato."""
+    data = ContratoErrorPayload()
+
 # Crear instancia de aplicación Flask para el contexto
 app = crear_app_minima()
 
@@ -113,6 +130,14 @@ def suscribirse_a_eventos_saga():
         daemon=True
     )
     threads.append(thread_contratos)
+    
+    # Hilo para eventos de error de contratos
+    thread_contratos_error = threading.Thread(
+        target=_consumir_eventos_contratos_error,
+        name="saga-contratos-error-consumer",
+        daemon=True
+    )
+    threads.append(thread_contratos_error)
     
     # Iniciar todos los hilos
     for thread in threads:
@@ -265,6 +290,52 @@ def _consumir_eventos_contratos():
             cliente.close()
 
 
+def _consumir_eventos_contratos_error():
+    """
+    Consumidor específico para eventos de error de contratos.
+    """
+    cliente = None
+    try:
+        logger.info("SAGA: Conectando a Pulsar para eventos de error de contratos...")
+        cliente = pulsar.Client(f'pulsar://{utils.broker_host()}:6650')
+        
+        consumidor = cliente.subscribe(
+            'eventos-contratos-error',
+            consumer_type=_pulsar.ConsumerType.Shared,
+            subscription_name='saga-sub-eventos-contratos-error',
+            schema=AvroSchema(EventoContratoError)
+        )
+
+        logger.info("SAGA: Suscrito a eventos de error de contratos")
+        logger.info("SAGA: Esperando eventos de error de contratos...")
+        
+        while True:
+            try:
+                mensaje = consumidor.receive()
+                logger.info(f"SAGA: Evento de error de contrato recibido - {mensaje.value()}")
+                
+                # Convertir evento Pulsar a evento de dominio
+                evento_dominio = _convertir_evento_contrato_error(mensaje.value())
+                
+                # Procesar con la saga
+                with app.app_context():
+                    oir_mensaje(evento_dominio)
+                
+                # Confirmar procesamiento
+                consumidor.acknowledge(mensaje)
+                logger.info("SAGA: Evento de error de contrato procesado y confirmado")
+                
+            except Exception as e:
+                logger.error(f"SAGA: Error procesando evento de error de contrato: {e}")
+                time.sleep(5)
+                
+    except Exception as e:
+        logger.error(f"SAGA: Error en consumidor de errores de contratos: {e}")
+    finally:
+        if cliente:
+            cliente.close()
+
+
 def _convertir_evento_influencer(evento_pulsar):
     """
     Convierte un evento de Pulsar a un evento de dominio InfluencerRegistrado.
@@ -325,6 +396,35 @@ def _convertir_evento_campana(evento_pulsar):
         raise
 
 
+def _convertir_evento_contrato_error(evento_pulsar):
+    """
+    Convierte un evento de error de Pulsar a un evento de dominio ErrorCreacionContrato.
+    """
+    logger.info(f"SAGA: Convirtiendo evento de error de contrato - {type(evento_pulsar)}")
+    logger.info(f"SAGA: Datos del evento de error: {evento_pulsar}")
+    
+    try:
+        data = evento_pulsar.data
+        logger.info(f"SAGA: Data del evento de error: {data}")
+        logger.info(f"SAGA: id_campana: {data.id_campana}, error: {data.error}")
+        
+        # Crear evento de error de dominio
+        from ..dominio.eventos import ErrorCreacionContrato
+        evento_dominio = ErrorCreacionContrato(
+            campana_id=str(data.id_campana),
+            error=str(data.error)
+        )
+        
+        logger.error(f"SAGA: Evento de error de contrato convertido - Campaña: {evento_dominio.campana_id}, Error: {evento_dominio.error}")
+        return evento_dominio
+        
+    except Exception as e:
+        logger.error(f"SAGA: Error convirtiendo evento de error de contrato: {e}")
+        import traceback
+        logger.error(f"SAGA: Traceback: {traceback.format_exc()}")
+        raise
+
+
 def _convertir_evento_contrato(evento_pulsar):
     """
     Convierte un evento de Pulsar a un evento de dominio ContratoCreado.
@@ -334,7 +434,7 @@ def _convertir_evento_contrato(evento_pulsar):
     try:
         data = evento_pulsar.data
         
-        # Crear evento de dominio compatible
+        # Crear evento de dominio compatible (éxito)
         evento_dominio = ContratoCreado(
             contrato_id=str(data.id_contrato),
             influencer_id=str(data.id_influencer),
