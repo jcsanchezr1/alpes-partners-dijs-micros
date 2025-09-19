@@ -9,7 +9,7 @@ alpes-partners-dijs-micros/
 ├── influencers/                  # Microservicio de Influencers
 ├── campanas/                     # Microservicio de Campañas
 ├── contratos/                    # Microservicio de Contratos
-├── reportes/                     # Microservicio de Reportes
+├── bff/                          # Microservicio BFF
 ├── scripts-despliegue-pulsar-vm-gcp/  # Scripts para despliegue de Pulsar
 ├── scripts-envio-eventos-pulsar/      # Scripts para envío de eventos
 ├── docker-compose.yml            # Orquestación completa de microservicios
@@ -56,18 +56,38 @@ alpes-partners-dijs-micros/
 - Eventos de integración vía Apache Pulsar
 - Genera eventos de `ContratoCreado`
 
-### 4. Reportes (`reportes/`)
+### 4. BFF (`bff/`)
 
-**Puerto**: 8003  
-**Base de datos**: PostgreSQL (puerto 5432)  
+**Puerto**: 8004  
+**Base de datos**: No requiere base de datos  
 **Funcionalidad**:
-- Generación automática de reportes basados en eventos
-- Consumo de eventos de contratos creados
+- Backend for Frontend que expone endpoints para iniciar el flujo de saga
+- Punto de entrada único para el frontend
 
 **Características**:
-- Arquitectura DDD
-- Consume eventos de Contratos creados
-- Genera eventos de `ReporteCreado`
+- Endpoint `/health` para health check
+- Endpoint `/influencers` para crear influencer e iniciar el flujo completo
+- Envía eventos al topic `eventos-influencers` de Pulsar
+- Arquitectura simple sin persistencia
+
+**Endpoints**:
+- `GET /health` - Health check del servicio (200)
+- `POST /influencers` - Crea un influencer e inicia el flujo de saga (202 - Accepted)
+
+**Request Body para `/influencers`**:
+```json
+{
+  "id_influencer": "string",
+  "nombre": "string", 
+  "email": "string",
+  "categorias": ["string"],
+  "plataformas": ["string"], // opcional
+  "descripcion": "string", // opcional
+  "biografia": "string", // opcional
+  "sitio_web": "string", // opcional
+  "telefono": "string" // opcional
+}
+```
 
 ## Infraestructura Compartida
 
@@ -77,7 +97,6 @@ alpes-partners-dijs-micros/
   - `eventos-influencers`: Eventos del microservicio de influencers
   - `eventos-campanas`: Eventos del microservicio de campañas
   - `eventos-contratos`: Eventos del microservicio de contratos
-  - `eventos-reportes`: Eventos del microservicio de reportes
 
 ### Bases de Datos
 - **PostgreSQL**: Puerto 5432 (compartida por todos los microservicios)
@@ -103,7 +122,7 @@ Esto iniciará todos los servicios:
 - Microservicio Influencers (8000)
 - Microservicio Campañas (8001)
 - Microservicio Contratos (8002)
-- Microservicio Reportes (8003)
+- Microservicio BFF (8004)
 
 ### Verificación
 
@@ -113,7 +132,7 @@ Esto iniciará todos los servicios:
 docker logs alpes-partners-dijs-micros-influencers-1
 docker logs alpes-partners-dijs-micros-campanas-1
 docker logs alpes-partners-dijs-micros-contratos-1
-docker logs alpes-partners-dijs-micros-reportes-1
+docker logs alpes-partners-dijs-micros-bff-1
 ```
 
 ### Ejecución Individual
@@ -136,10 +155,10 @@ cd contratos/
 docker build -t contratos .
 docker run -p 8002:8080 contratos
 
-# Microservicio de reportes
-cd reportes/
-docker build -t reportes .
-docker run -p 8003:8080 reportes
+# Microservicio BFF
+cd bff/
+docker build -t bff .
+docker run -p 8004:8080 bff
 ```
 
 ## Flujo de Eventos
@@ -153,9 +172,6 @@ docker run -p 8003:8080 reportes
 7. **Contratos consume evento** → Microservicio Contratos
 8. **Contrato se persiste** → PostgreSQL (5432)
 9. **Evento `ContratoCreado`** → Pulsar (`eventos-contratos`)
-10. **Reportes consume evento** → Microservicio Reportes
-11. **Reporte se crea automáticamente** → PostgreSQL (5432)
-12. **Evento `ReporteCreado`** → Pulsar (`eventos-reportes`)
 
 ## Documentación
 
@@ -262,29 +278,6 @@ class EventoContratoCreado(EventoIntegracion):
 - **Integración**: Cuando se crea un contrato, reportes debe generar métricas automáticamente
 - **Carga de Estado**: Enviamos todos los datos del contrato (montos, fechas, participantes) para que reportes tenga todo lo necesario
 
-#### **4. Microservicio Reportes**
-
-**Evento de Integración**: `ReporteCreado`
-
-**Ubicación**: `reportes/src/alpes_partners/modulos/reportes/infraestructura/schema/eventos.py`
-
-```python
-class ReporteCreadoPayload(Record):
-    """Payload del evento ReporteCreado - Estado Completo"""
-    reporte_id = String()
-    tipo_reporte = String()
-    fecha_generacion = String()
-    datos_reporte = String()  
-    contratos_incluidos = Array(String())
-
-class EventoReporteCreado(EventoIntegracion):
-    """Evento de integración para reporte creado"""
-    data = ReporteCreadoPayload()
-```
-
-**¿Por qué lo hacemos así?**:
-- **Integración**: Cuando generamos un reporte, otros sistemas pueden consumirlo para análisis
-- **Carga de Estado**: Enviamos todas las métricas y datos agregados para que otros sistemas tengan la información completa
 
 ### Esquemas y Evolución
 
@@ -346,7 +339,6 @@ En nuestro proyecto decidimos usar una **topología híbrida** porque nos permit
 - influencers_schema    -- Microservicio Influencers
 - campanas_schema       -- Microservicio Campañas  
 - contratos_schema      -- Microservicio Contratos
-- reportes_schema       -- Microservicio Reportes
 ```
 
 #### **Ejemplos de Implementación**
@@ -392,19 +384,6 @@ class ContratoDB(DeclarativeBase):
     fecha_creacion = Column(DateTime)
 ```
 
-**4. Microservicio Reportes**
-```python
-# reportes/src/alpes_partners/seedwork/infraestructura/database.py
-class ReporteDB(DeclarativeBase):
-    __tablename__ = 'reportes'
-    __table_args__ = {'schema': 'reportes_schema'}
-    
-    id = Column(String, primary_key=True)
-    tipo_reporte = Column(String)
-    datos_reporte = Column(JSON)
-    fecha_generacion = Column(DateTime)
-```
-
 ### ¿Por qué no las otras topologías?
 
 #### **Topología Centralizada**
@@ -415,8 +394,7 @@ class ReporteDB(DeclarativeBase):
   CREATE TABLE datos_compartidos (
       influencer_id VARCHAR,
       campana_id VARCHAR,
-      contrato_id VARCHAR,
-      reporte_id VARCHAR
+      contrato_id VARCHAR
   );
   ```
 
@@ -431,8 +409,6 @@ class ReporteDB(DeclarativeBase):
     postgres-campanas:
       image: postgres:13
     postgres-contratos:
-      image: postgres:13
-    postgres-reportes:
       image: postgres:13
   ```
 
@@ -483,21 +459,17 @@ El modelo CRUD + Pulsar nos permite mantener la simplicidad de las operaciones C
 ### Descripción de Actividades por Miembro del Equipo
 
 **Sergio Celis**
-- Desarrollo completo del microservicio de Campañas
-- Definición y especificación de los 3 escenarios de calidad
+- Desarrollo del BFF
 
 **Diego Jaramillo**
-- Desarrollo completo del microservicio de Influencers
-- Definición y especificación de los 3 escenarios de calidad
+- Desarrollo del BFF
 
 **Julio Sánchez**
-- Desarrollo del microservicio de Contratos
-- Implementación y ajustes de comunicación orientada a eventos
+- Desarrollo e implementación de la SAGA
 - Configuración y despliegue de la solución en Google Cloud Platform (GCP)
 
 **Ian Beltrán**
-- Desarrollo del microservicio de Reportes
-- Implementación y ajustes de comunicación orientada a eventos
+- Desarrollo e implementación de la SAGA
 - Configuración y despliegue de la solución en Google Cloud Platform (GCP)
 
 ## Desarrollo
@@ -544,7 +516,6 @@ Nota: Si generar error de permisos correr `chmod +x startup-script.sh`
 docker build -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/influencers:1.0 .
 docker build -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/campanas:1.0 .
 docker build -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/contratos:1.0 .
-docker build -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/reportes:1.0 .
 ```
 
 Para arquitectura amd64
@@ -552,7 +523,6 @@ Para arquitectura amd64
 docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/influencers:1.0 .
 docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/campanas:1.0 .
 docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/contratos:1.0 .
-docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/reportes:1.0 .
 ```
 
 3. Subir la imagen al **Artifactory Registry** creado en la cuenta de **GCP** con el siguiente comando:
@@ -560,7 +530,6 @@ docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-nativ
 docker push us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/influencers:1.0
 docker push us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/campanas:1.0
 docker push us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/contratos:1.0
-docker push us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/reportes:1.0
 ```
 
 4. Desplegar los servicio en Cloud Run
@@ -601,18 +570,6 @@ gcloud run deploy contratos-ms \
     --max-instances 1
 ```
 
-Microservicio Reportes
-```bash
-gcloud run deploy reportes-ms \
-    --image us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/reportes:1.0 \
-    --region us-central1 \
-    --set-env-vars DATABASE_URL="postgresql://postgres:passwordDB10@IP_DB:5432/postgres",PULSAR_ADDRESS="IP_VM",RECREATE_DB=false\
-    --memory 16Gi \
-    --cpu 4 \
-    --min-instances 1 \
-    --max-instances 1
-```
-
 ## Scripts envio eventos pulsar
 
 ```bash
@@ -642,14 +599,14 @@ export PULSAR_ADDRESS=34.123.45.67
 
 ```bash
 # Ejecución básica (usa localhost)
-python scripts-envio-eventos-pulsar/enviar_evento_reportes_pulsar.py
+python scripts-envio-eventos-pulsar/enviar_evento_crear_influencer_pulsar.py
 
 # Con servidor remoto
-PULSAR_ADDRESS=mi-servidor-pulsar python scripts-envio-eventos-pulsar/enviar_evento_reportes_pulsar.py
+PULSAR_ADDRESS=mi-servidor-pulsar python scripts-envio-eventos-pulsar/enviar_evento_crear_influencer_pulsar.py
 
 # Hacer ejecutable (opcional)
-chmod +x scripts-envio-eventos-pulsar/enviar_evento_reportes_pulsar.py
-./scripts-envio-eventos-pulsar/enviar_evento_reportes_pulsar.py
+chmod +x scripts-envio-eventos-pulsar/enviar_evento_crear_influencer_pulsar.py
+./scripts-envio-eventos-pulsar/enviar_evento_crear_influencer_pulsar.py
 ```
 
 ### Datos del Evento
