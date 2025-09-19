@@ -120,5 +120,22 @@ services:
     networks:
       - app
 
+  # Servicio BFF
+  bff:
+    build: ./bff
+    ports:
+      - "8004:8080"
+    environment:
+      - PULSAR_ADDRESS=pulsar
+      - ENVIRONMENT=development
+      - LOG_LEVEL=INFO
+    depends_on:
+      - pulsar
+    volumes:
+      - ./bff:/app
+    command: python run_flask.py
+    networks:
+      - app
+
 volumes:
   postgres_data:

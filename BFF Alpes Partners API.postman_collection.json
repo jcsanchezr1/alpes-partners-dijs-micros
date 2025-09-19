@@ -1,0 +1,214 @@
+{
+	"info": {
+		"_postman_id": "e72ed7f7-7bee-410a-abbd-85336eb27ef1",
+		"name": "BFF Alpes Partners API",
+		"description": "Collection para interactuar con el microservicio BFF de Alpes Partners",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "2750860",
+		"_collection_link": "https://timecontrol.postman.co/workspace/TCT~e4bf613c-84ca-4624-ad9c-4c8c0259e211/collection/2750860-e72ed7f7-7bee-410a-abbd-85336eb27ef1?action=share&source=collection_link&creator=2750860"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/health",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"health"
+					]
+				},
+				"description": "Verifica el estado del servicio BFF"
+			},
+			"response": [
+				{
+					"name": "Success Response",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"health"
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"cookie": [],
+					"body": "{\n  \"status\": \"up\",\n  \"service\": \"bff-microservice\",\n  \"version\": \"1.0.0\"\n}"
+				}
+			]
+		},
+		{
+			"name": "Crear Influencer - Exitoso",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"id_influencer\": \"inf-002\",\n  \"nombre\": \"María García\",\n  \"email\": \"maria.garcia@example.com\",\n  \"categorias\": [\"lifestyle\", \"moda\", \"belleza\"],\n  \"plataformas\": [\"instagram\", \"youtube\", \"tiktok\"],\n  \"descripcion\": \"Influencer de lifestyle y moda\",\n  \"biografia\": \"Apasionada por la moda y el estilo de vida saludable\",\n  \"sitio_web\": \"https://mariagarcia.com\",\n  \"telefono\": \"+1234567890\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/influencers",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"influencers"
+					]
+				},
+				"description": "Crea un influencer con todos los campos disponibles"
+			},
+			"response": [
+				{
+					"name": "Success Response",
+					"originalRequest": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"id_influencer\": \"inf-002\",\n  \"nombre\": \"María García\",\n  \"email\": \"maria.garcia@example.com\",\n  \"categorias\": [\"lifestyle\", \"moda\", \"belleza\"],\n  \"plataformas\": [\"instagram\", \"youtube\", \"tiktok\"],\n  \"descripcion\": \"Influencer de lifestyle y moda\",\n  \"biografia\": \"Apasionada por la moda y el estilo de vida saludable\",\n  \"sitio_web\": \"https://mariagarcia.com\",\n  \"telefono\": \"+1234567890\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/influencers",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"influencers"
+							]
+						}
+					},
+					"status": "Accepted",
+					"code": 202,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"cookie": [],
+					"body": "{\n  \"success\": true,\n  \"message\": \"Influencer procesado\"\n}"
+				}
+			]
+		},
+		{
+			"name": "Crear Influencer - Error Validación",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"id_influencer\": \"inf-003\",\n  \"nombre\": \"Carlos López\"\n  // Faltan campos requeridos: email y categorias\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/influencers",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"influencers"
+					]
+				},
+				"description": "Ejemplo de error de validación por campos faltantes"
+			},
+			"response": [
+				{
+					"name": "Validation Error",
+					"originalRequest": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"id_influencer\": \"inf-003\",\n  \"nombre\": \"Carlos López\"\n  // Faltan campos requeridos: email y categorias\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/influencers",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"influencers"
+							]
+						}
+					},
+					"status": "Bad Request",
+					"code": 400,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						}
+					],
+					"cookie": [],
+					"body": "{\n  \"error\": \"Campo requerido: email\"\n}"
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8004",
+			"type": "string",
+			"description": "URL base del microservicio BFF"
+		}
+	]
+}
