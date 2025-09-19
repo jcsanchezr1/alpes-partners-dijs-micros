@@ -9,7 +9,7 @@ from pydispatch import dispatcher
 from pulsar.schema import AvroSchema
 
 from ....seedwork.aplicacion.comandos import ejecutar_commando
-from .comandos.comandos_externos import RegistrarCampana, CrearContrato, EliminarCampana
+from .comandos.comandos_externos import RegistrarCampana, CrearContrato, EliminarCampana, EliminarInfluencer
 
 logger = logging.getLogger(__name__)
 
@@ -155,6 +155,32 @@ class HandlerComandosExternos:
             raise
 
     @staticmethod
+    def handle_eliminar_influencer(comando: EliminarInfluencer):
+        """
+        Manejar comando de eliminar influencer (compensación).
+        Ejecuta directamente la eliminación del influencer.
+        """
+        logger.info(f"SAGA HANDLER: Procesando comando EliminarInfluencer - Influencer: {comando.influencer_id}")
+        logger.info(f"SAGA HANDLER: Razón: {comando.razon}")
+        
+        try:
+            # Importar aquí para evitar dependencias circulares
+            from ...influencers.infraestructura.repositorio_sqlalchemy import RepositorioInfluencersSQLAlchemy
+            from ...influencers.infraestructura.fabricas import FabricaRepositorioInfluencers
+            
+            # Crear repositorio
+            fabrica_repositorio = FabricaRepositorioInfluencers()
+            repositorio = fabrica_repositorio.crear_objeto(RepositorioInfluencersSQLAlchemy)
+            
+            # Eliminar influencer
+            repositorio.eliminar(comando.influencer_id)
+            logger.info(f"SAGA HANDLER: Influencer {comando.influencer_id} eliminado exitosamente")
+            
+        except Exception as e:
+            logger.error(f"SAGA HANDLER: Error eliminando influencer {comando.influencer_id}: {e}")
+            raise
+
+    @staticmethod
     def handle_eliminar_campana(comando: EliminarCampana):
         """
         Manejar comando de eliminar campaña (compensación).
@@ -214,6 +240,13 @@ def ejecutar_comando_eliminar_campana(comando: EliminarCampana):
     """Ejecutar comando de eliminar campaña (compensación)."""
     handler = HandlerComandosExternos()
     return handler.handle_eliminar_campana(comando)
+
+
+@ejecutar_commando.register(EliminarInfluencer)
+def ejecutar_comando_eliminar_influencer(comando: EliminarInfluencer):
+    """Ejecutar comando de eliminar influencer (compensación)."""
+    handler = HandlerComandosExternos()
+    return handler.handle_eliminar_influencer(comando)
 
 
 logger.info("SAGA HANDLERS: Handlers de comandos externos registrados exitosamente")

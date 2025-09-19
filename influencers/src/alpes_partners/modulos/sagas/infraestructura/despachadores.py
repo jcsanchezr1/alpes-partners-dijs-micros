@@ -146,7 +146,7 @@ class DespachadorCampanas:
             logger.error(f"SAGA DESPACHADOR: Error publicando comando de crear campaña: {e}")
             raise
 
-    def publicar_evento_eliminacion_campana(self, evento, topico='eventos-campanas-eliminacion'):
+    def publicar_evento_eliminacion_campana(self, evento, topico='eventos-campanas-eliminacion-v2'):
         """Publica evento de eliminación de campaña requerida."""
         try:
             from pulsar.schema import AvroSchema

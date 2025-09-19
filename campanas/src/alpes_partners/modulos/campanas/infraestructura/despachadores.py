@@ -85,7 +85,7 @@ class DespachadorCampanas:
         
         self._publicar_mensaje(evento_integracion, topico, AvroSchema(EventoCampanaCreada))
     
-    def publicar_evento_campana_eliminada(self, campana_id: str, influencer_id: str, razon: str, topico='eventos-campanas-eliminacion'):
+    def publicar_evento_campana_eliminada(self, campana_id: str, influencer_id: str, razon: str, topico='eventos-campanas-eliminacion-v2'):
         """Publica evento cuando una campaña es eliminada."""
         import logging
         logger = logging.getLogger(__name__)

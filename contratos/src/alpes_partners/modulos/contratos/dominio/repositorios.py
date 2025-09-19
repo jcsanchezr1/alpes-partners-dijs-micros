@@ -49,6 +49,6 @@ class RepositorioContratos(Repositorio[Contrato]):
         pass
     
     @abstractmethod
-    def existe_contrato_activo(self, influencer_id: str, campana_id: str) -> bool:
-        """Verifica si existe un contrato activo entre influencer y campaña."""
+    def existe_contrato_activo(self, influencer_email: str) -> bool:
+        """Verifica si existe un contrato activo para el influencer (por email)."""
         pass

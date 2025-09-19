@@ -54,15 +54,7 @@ class CrearContratoHandler(CrearContratoBaseHandler):
             # Crear repositorio para validaciones de dominio
             repositorio = self.fabrica_repositorio.crear_objeto(RepositorioContratosSQLAlchemy)
             
-            # VALIDACIÓN DE DOMINIO: Verificar que no exista un contrato activo
-            logger.info(f"COMANDO HANDLER: Verificando contratos existentes")
-            if repositorio.existe_contrato_activo(comando.influencer_id, comando.campana_id):
-                logger.warning(f"COMANDO HANDLER: Ya existe un contrato activo entre {comando.influencer_id} y {comando.campana_id}")
-                raise ContratoYaExiste(f"Ya existe un contrato activo entre el influencer y la campaña")
-            
-            logger.info(f"COMANDO HANDLER: No hay conflictos de contratos")
-            
-            # Crear la entidad solo después de validar las reglas de dominio
+            # Crear la entidad
             contrato_dto = CrearContratoDTO(
                 fecha_actualizacion=comando.fecha_actualizacion,
                 fecha_creacion=comando.fecha_creacion,
@@ -88,6 +80,20 @@ class CrearContratoHandler(CrearContratoBaseHandler):
             # Usar el sistema de UoW con batches y eventos (como en el tutorial)
             UnidadTrabajoPuerto.registrar_batch(repositorio.agregar, contrato)
             UnidadTrabajoPuerto.savepoint()
+            
+            # VALIDACIÓN DE DOMINIO: Verificar que no exista un contrato activo DENTRO de la transacción
+            logger.info(f"COMANDO HANDLER: Verificando contratos existentes dentro de la transacción")
+            logger.info(f"COMANDO HANDLER: Buscando contrato con email: {comando.influencer_email}")
+            
+            existe_contrato = repositorio.existe_contrato_activo(comando.influencer_email)
+            logger.info(f"COMANDO HANDLER: Resultado de validación: {existe_contrato}")
+            
+            if existe_contrato:
+                logger.warning(f"COMANDO HANDLER: Ya existe un contrato activo para {comando.influencer_email}")
+                raise ContratoYaExiste(f"Ya existe un contrato activo para este influencer")
+            
+            logger.info(f"COMANDO HANDLER: No hay conflictos de contratos")
+            
             UnidadTrabajoPuerto.commit()
             
             logger.info(f"COMANDO HANDLER: Contrato creado exitosamente - ID: {comando.id}")
@@ -136,7 +142,8 @@ class CrearContratoHandler(CrearContratoBaseHandler):
             
             # Publicar evento
             despachador = DespachadorContratos()
-            despachador.publicar(evento, "eventos-contratos-error")
+            from pulsar.schema import AvroSchema
+            despachador.publicar(evento, "eventos-contratos-error", AvroSchema(EventoContratoError))
             
             logger.info(f"COMANDO HANDLER: Evento de error publicado exitosamente")
             

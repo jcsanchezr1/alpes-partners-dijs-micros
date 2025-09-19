@@ -49,10 +49,10 @@ class EventoCampanaCreada(EventoIntegracion):
 
 class CampanaEliminadaPayload(Record):
     """Payload del evento CampanaEliminada que campanas publica."""
-    campana_id = String()
-    influencer_id = String()
-    razon = String()
-    fecha_eliminacion = String()
+    campana_id = String(default=None, required=False)
+    influencer_id = String(default=None, required=False)
+    razon = String(default=None, required=False)
+    fecha_eliminacion = String(default=None, required=False)
 
 
 class EventoCampanaEliminada(EventoIntegracion):
@@ -62,10 +62,10 @@ class EventoCampanaEliminada(EventoIntegracion):
 
 class CampanaEliminacionRequeridaPayload(Record):
     """Payload del evento de eliminación de campaña requerida que campanas consume."""
-    campana_id = String()
-    influencer_id = String()
-    razon = String()
-    fecha_solicitud = String()
+    campana_id = String(default=None, required=False)
+    influencer_id = String(default=None, required=False)
+    razon = String(default=None, required=False)
+    fecha_solicitud = String(default=None, required=False)
 
 
 class EventoCampanaEliminacionRequerida(EventoIntegracion):

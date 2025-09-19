@@ -88,9 +88,9 @@ def suscribirse_a_eventos_eliminacion_campana():
         
         # Consumidor para eventos de eliminación de campaña
         consumidor = cliente.subscribe(
-            'eventos-campanas-eliminacion', 
+            'eventos-campanas-eliminacion-v2', 
             consumer_type=_pulsar.ConsumerType.Shared,
-            subscription_name='campanas-sub-eventos-eliminacion', 
+            subscription_name='campanas-sub-eventos-eliminacion-v2', 
             schema=AvroSchema(EventoCampanaEliminacionRequerida)
         )
 

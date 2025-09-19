@@ -12,7 +12,7 @@ class ContratoModelo(Base):
     
     __tablename__ = "contratos"
     __table_args__ = (
-        UniqueConstraint('influencer_id', 'campana_id', name='uq_contratos_influencer_campana'),
+        UniqueConstraint('influencer_email', name='uq_contratos_influencer_email'),
     )
     
     # Campos básicos del contrato

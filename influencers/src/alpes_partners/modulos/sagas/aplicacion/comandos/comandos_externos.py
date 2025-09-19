@@ -75,3 +75,10 @@ class CrearContrato(Comando):
     fecha_fin: Optional[str] = None
     entregables: Optional[str] = None
     tipo_contrato: str = "puntual"
+
+
+@dataclass
+class EliminarInfluencer(Comando):
+    """Comando para eliminar un influencer (compensación)."""
+    influencer_id: str
+    razon: str = "Compensación por falla en saga"

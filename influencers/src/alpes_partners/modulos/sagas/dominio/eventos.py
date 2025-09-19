@@ -83,6 +83,15 @@ class ErrorCreacionContrato(EventoDominio):
         self.error = error
 
 
+class ErrorCreacionInfluencer(EventoDominio):
+    """Evento de error cuando falla la creación de influencer."""
+    
+    def __init__(self, influencer_id: str, error: str):
+        super().__init__()
+        self.influencer_id = influencer_id
+        self.error = error
+
+
 class CompensacionEjecutada(EventoDominio):
     """Evento que indica que una compensación fue ejecutada exitosamente."""
     

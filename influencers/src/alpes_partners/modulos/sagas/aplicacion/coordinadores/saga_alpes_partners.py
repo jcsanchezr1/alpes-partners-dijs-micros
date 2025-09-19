@@ -12,8 +12,8 @@ from .....seedwork.dominio.eventos import EventoDominio, EventoIntegracion
 from ....influencers.dominio.eventos import InfluencerRegistrado
 
 # Importar eventos y comandos locales (para evitar dependencias entre microservicios)
-from ...dominio.eventos import CampanaCreada, ContratoCreado, ErrorCreacionCampana, ErrorCreacionContrato, CompensacionEjecutada
-from ..comandos.comandos_externos import RegistrarCampana, CrearContrato, EliminarCampana
+from ...dominio.eventos import CampanaCreada, ContratoCreado, ErrorCreacionCampana, ErrorCreacionContrato, ErrorCreacionInfluencer, CompensacionEjecutada
+from ..comandos.comandos_externos import RegistrarCampana, CrearContrato, EliminarCampana, EliminarInfluencer
 
 # Importar clases base para saga
 from .....seedwork.aplicacion.sagas import CoordinadorOrquestacion, Transaccion, Inicio, Fin
@@ -141,13 +141,21 @@ class CoordinadorInfluencersCampanasContratos(CoordinadorOrquestacion):
                 error=ErrorCreacionContrato, 
                 compensacion=EliminarContrato
             ),
-            Fin(index=3)
+            Transaccion(
+                index=3, 
+                comando=EliminarInfluencer, 
+                evento=None,
+                error=None,
+                compensacion=None
+            ),
+            Fin(index=4)
         ]
     
     @classmethod
     def reset_correlacion(cls):
         """Resetear el id_correlacion para una nueva saga."""
         cls._id_correlacion_global = None
+        cls._instancia = None  # Forzar creación de nueva instancia
     
     def iniciar(self):
         """Iniciar la saga."""
@@ -307,6 +315,21 @@ class CoordinadorInfluencersCampanasContratos(CoordinadorOrquestacion):
                 logger.info(f"SAGA: No se requiere compensación para error de campaña")
                 return None
             
+            elif isinstance(evento, ErrorCreacionContrato) and tipo_comando == EliminarInfluencer:
+                # Si falla la creación del contrato, también eliminar el influencer
+                influencer_id = self.contexto_influencer.get('influencer_id', '') if self.contexto_influencer else ''
+                
+                if not influencer_id:
+                    logger.warning(f"SAGA: No se encontró influencer_id en contexto para compensación")
+                    return None
+                
+                comando = EliminarInfluencer(
+                    influencer_id=influencer_id,
+                    razon=f"Compensación por error en creación de contrato: {evento.error}"
+                )
+                logger.info(f"SAGA: Comando EliminarInfluencer construido para compensación - Influencer: {influencer_id}")
+                return comando
+            
             else:
                 logger.warning(f"SAGA: No hay implementación para construir {tipo_comando.__name__} desde {type(evento).__name__}")
                 raise NotImplementedError(f"No se puede construir comando {tipo_comando.__name__} desde evento {type(evento).__name__}")
@@ -406,29 +429,55 @@ class CoordinadorInfluencersCampanasContratos(CoordinadorOrquestacion):
             # 2. Iniciar compensación - eliminar la campaña creada
             logger.info(f"SAGA: Iniciando compensación - eliminando campaña {evento.campana_id}")
             
-            # Construir comando de compensación
-            comando_compensacion = self.construir_comando(evento, EliminarCampana)
+            # Construir comando de compensación para campaña
+            comando_compensacion_campana = self.construir_comando(evento, EliminarCampana)
             
-            if comando_compensacion:
+            if comando_compensacion_campana:
                 # Persistir el comando de compensación en el log
-                self.persistir_en_saga_log(comando_compensacion, paso_index=3)
+                self.persistir_en_saga_log(comando_compensacion_campana, paso_index=3)
                 
-                # Ejecutar compensación
-                ejecutar_commando(comando_compensacion)
-                logger.info(f"SAGA: Compensación ejecutada exitosamente - Campaña eliminada")
+                # Ejecutar compensación de campaña
+                ejecutar_commando(comando_compensacion_campana)
+                logger.info(f"SAGA: Compensación de campaña ejecutada exitosamente")
                 
                 # Persistir evento de compensación ejecutada
                 evento_compensacion_ejecutada = CompensacionEjecutada(
                     comando='EliminarCampana',
                     campana_id=evento.campana_id,
-                    influencer_id=comando_compensacion.influencer_id,
-                    razon=comando_compensacion.razon,
+                    influencer_id=comando_compensacion_campana.influencer_id,
+                    razon=comando_compensacion_campana.razon,
                     fecha_ejecucion=datetime.utcnow()
                 )
                 self.persistir_en_saga_log(evento_compensacion_ejecutada, paso_index=4)
                 
             else:
-                logger.warning(f"SAGA: No se pudo construir comando de compensación")
+                logger.warning(f"SAGA: No se pudo construir comando de compensación de campaña")
+            
+            # 3. Compensación adicional - eliminar el influencer
+            logger.info(f"SAGA: Iniciando compensación adicional - eliminando influencer")
+            
+            comando_compensacion_influencer = self.construir_comando(evento, EliminarInfluencer)
+            
+            if comando_compensacion_influencer:
+                # Persistir el comando de compensación en el log
+                self.persistir_en_saga_log(comando_compensacion_influencer, paso_index=5)
+                
+                # Ejecutar compensación de influencer
+                ejecutar_commando(comando_compensacion_influencer)
+                logger.info(f"SAGA: Compensación de influencer ejecutada exitosamente")
+                
+                # Persistir evento de compensación ejecutada
+                evento_compensacion_influencer = CompensacionEjecutada(
+                    comando='EliminarInfluencer',
+                    campana_id=evento.campana_id,
+                    influencer_id=comando_compensacion_influencer.influencer_id,
+                    razon=comando_compensacion_influencer.razon,
+                    fecha_ejecucion=datetime.utcnow()
+                )
+                self.persistir_en_saga_log(evento_compensacion_influencer, paso_index=6)
+                
+            else:
+                logger.warning(f"SAGA: No se pudo construir comando de compensación de influencer")
             
             # 3. Marcar saga como fallida
             self.terminar_con_error(f"Error en creación de contrato: {evento.error}")
