@@ -134,6 +134,33 @@
 						"type": "text/javascript",
 						"packages": {}
 					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Verificar que el status sea 202",
+							"pm.test(\"Status code is 202\", function () {",
+							"    pm.response.to.have.status(202);",
+							"});",
+							"",
+							"// Parsear respuesta",
+							"let response = pm.response.json();",
+							"",
+							"// Verificar que el mensaje sea correcto",
+							"pm.test(\"Mensaje correcto\", function () {",
+							"    pm.expect(response.message).to.eql(\"Influencer procesado\");",
+							"});",
+							"",
+							"// Verificar que success sea true",
+							"pm.test(\"Success es true\", function () {",
+							"    pm.expect(response.success).to.be.true;",
+							"});",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
 				}
 			],
 			"request": {

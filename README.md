@@ -882,6 +882,7 @@ docker build -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-pa
 docker build -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/campanas:1.0 .
 docker build -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/contratos:1.0 .
 docker build -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/saga:1.0 .
+docker build -f Dockerfile.saga -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/saga:1.0 .
 docker build -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/bff:1.0 .
 ```
 
@@ -890,7 +891,7 @@ Para arquitectura amd64
 docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/influencers:1.0 .
 docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/campanas:1.0 .
 docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/contratos:1.0 .
-docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/saga:1.0 .
+docker build -f Dockerfile.saga --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/saga:1.0 .
 docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/bff:1.0 .
 ```
 
