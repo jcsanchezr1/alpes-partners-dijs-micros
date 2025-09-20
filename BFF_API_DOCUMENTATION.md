@@ -42,6 +42,11 @@ Si tu BFF está ejecutándose en un puerto diferente, actualiza la variable en P
 - **Propósito**: Crear un nuevo influencer e iniciar el flujo de saga
 - **Response esperado**: `202 Accepted`
 
+#### Stream de Eventos
+- **Request**: `GET /stream`
+- **Propósito**: Obtener streaming en tiempo real de eventos creados
+- **Response esperado**: `200 OK` (text/event-stream)
+
 ## Endpoints Disponibles
 
 ### 1. Health Check
@@ -137,6 +142,55 @@ Crea un nuevo influencer e inicia el flujo de saga de forma asíncrona.
 }
 ```
 
+---
+
+### 3. Stream de Eventos
+
+Obtiene un stream en tiempo real de eventos usando Server-Sent Events (SSE).
+
+**Endpoint**: `GET /stream`
+
+**Content-Type**: `text/event-stream`
+
+**Descripción**: Este endpoint mantiene una conexión abierta y envía actualizaciones en tiempo real cada vez que se crea un nuevo evento en el sistema. El stream se suscribe automáticamente al tópico `eventos-contratos` de Apache Pulsar.
+
+**Response Format**:
+```
+Nuevo evento
+{
+    "data": {
+        "fecha_creacion": "2025-09-20 03:21:45.872565",
+        "id_campana": "9bc31edd-0540-4e63-a696-67bdc38642c5",
+        "id_contrato": "5ebfe61c-3f85-4192-a1df-9724e8c1797f",
+        "id_influencer": "a6cb7081-7127-474d-b7ab-4988cd1a35f3"
+    }
+}
+```
+
+**Estructura de Datos**:
+- Cada línea contiene "Nuevo evento" seguido del JSON
+- El JSON contiene un objeto `data` con un array `eventos`
+- Cada evento incluye:
+  - `fecha_creacion`: Timestamp de creación del evento
+  - `id_campana`: ID de la campaña asociada
+  - `id_contrato`: ID único del contrato
+  - `id_influencer`: ID del influencer asociado
+
+**Headers de Response**:
+```
+Content-Type: text/event-stream
+Cache-Control: no-cache
+Connection: keep-alive
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Headers: Cache-Control
+```
+
+**Status Codes**:
+- `200 OK`: Stream iniciado correctamente
+- `500 Internal Server Error`: Error interno del servidor
+
+```
+
 ## Códigos de Error
 
 ### 400 Bad Request
@@ -173,7 +227,7 @@ La collection incluye los siguientes requests:
 
 | Código | Descripción | Cuándo ocurre |
 |--------|-------------|---------------|
-| `200` | OK | Health check exitoso, información del servicio |
+| `200` | OK | Health check exitoso, información del servicio, stream iniciado |
 | `202` | Accepted | Influencer procesado (asíncrono) |
 | `400` | Bad Request | Error de validación o Content-Type incorrecto |
 | `500` | Internal Server Error | Error interno del servidor |
@@ -187,7 +241,8 @@ La collection incluye los siguientes requests:
 
 ### Dependencias
 - Apache Pulsar debe estar ejecutándose
-- El topic `eventos-crear-influencer` debe estar disponible
+- El topic `eventos-crear-influencer` debe estar disponible (para crear influencers)
+- El topic `eventos-contratos` debe estar disponible (para el stream de contratos)
 - Los microservicios de destino deben estar funcionando
 
 ### Levantar el Sistema
@@ -224,6 +279,9 @@ curl -X POST http://localhost:8004/influencers \
     "sitio_web": "https://mariagarcia.com",
     "telefono": "+1234567890"
   }'
+
+# Stream de eventos (tiempo real)
+curl -N http://localhost:8004/stream
 ```
 
 ## Archivos de la Documentación
