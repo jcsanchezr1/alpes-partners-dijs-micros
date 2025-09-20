@@ -3,9 +3,12 @@ API endpoints para el BFF.
 """
 
 import logging
-from flask import Flask, request, jsonify
+import uuid
+from datetime import datetime
+from flask import Flask, request, jsonify, Response, stream_with_context
 from ..modulos.bff.aplicacion.servicios import BFFService
 from ..modulos.bff.aplicacion.dto import CrearInfluencerRequest, CrearInfluencerResponse, HealthResponse
+from ..modulos.bff.aplicacion.servicios_streaming import servicio_streaming
 from ..config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -77,11 +80,53 @@ def crear_rutas(app: Flask):
                 "message": f"Error interno del servidor: {str(e)}"
             }), 500
     
+    @app.route('/stream', methods=['GET'])
+    def stream_eventos():
+        """Endpoint para streaming de eventos en tiempo real usando Server-Sent Events."""
+        try:
+            logger.info("Iniciando stream de eventos")
+            
+            def generar_respuesta():
+                """Genera la respuesta de streaming."""
+                try:
+                    # Generar stream de eventos
+                    for evento in servicio_streaming.generar_stream_eventos():
+                        # Formatear como texto con "Nuevo evento" y JSON
+                        data_json = jsonify(evento).get_data(as_text=True)
+                        yield f"Nuevo evento\n{data_json}\n"
+                        
+                except GeneratorExit:
+                    logger.info("Cliente desconectado")
+                except Exception as e:
+                    logger.error(f"Error en stream: {e}")
+                    yield f"Error: {str(e)}\n"
+            
+            # Crear respuesta con headers SSE
+            response = Response(
+                stream_with_context(generar_respuesta()),
+                mimetype='text/event-stream',
+                headers={
+                    'Cache-Control': 'no-cache',
+                    'Connection': 'keep-alive',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Headers': 'Cache-Control'
+                }
+            )
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error en endpoint /stream: {e}")
+            return jsonify({
+                "error": "Error interno del servidor",
+                "message": str(e)
+            }), 500
+    
     @app.route('/', methods=['GET'])
     def root():
         """Root endpoint."""
         return jsonify({
             "service": "bff-microservice",
             "version": settings.app_version,
-            "endpoints": ["/health", "/influencers"]
+            "endpoints": ["/health", "/influencers", "/stream"]
         }), 200
