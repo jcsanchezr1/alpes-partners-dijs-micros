@@ -211,19 +211,23 @@ class RepositorioContratosSQLAlchemy(RepositorioContratos):
         logger.info(f"REPOSITORIO: {len(contratos)} contratos encontrados con monto >= {monto_minimo}")
         return contratos
     
-    def existe_contrato_activo(self, influencer_id: str, campana_id: str) -> bool:
-        """Verifica si existe un contrato activo entre influencer y campaña."""
-        logger.info(f"REPOSITORIO: Verificando contrato activo entre {influencer_id} y {campana_id}")
+    def existe_contrato_activo(self, influencer_email: str) -> bool:
+        """Verifica si existe un contrato activo para el influencer (por email)."""
+        logger.info(f"REPOSITORIO: Verificando contrato activo para {influencer_email}")
         
-        existe = db.session.query(ContratoModelo).filter(
+        # Buscar cualquier contrato activo con ese email
+        contrato_activo = db.session.query(ContratoModelo).filter(
             and_(
-                ContratoModelo.influencer_id == influencer_id,
-                ContratoModelo.campana_id == campana_id,
+                ContratoModelo.influencer_email == influencer_email,
                 ContratoModelo.estado == EstadoContrato.ACTIVO.value
             )
-        ).first() is not None
+        ).first()
         
-        logger.info(f"REPOSITORIO: Contrato activo {'existe' if existe else 'no existe'}")
+        existe = contrato_activo is not None
+        logger.info(f"REPOSITORIO: Contrato activo {'existe' if existe else 'no existe'} para {influencer_email}")
+        if contrato_activo:
+            logger.info(f"REPOSITORIO: Contrato encontrado: {contrato_activo.id} - Campaña: {contrato_activo.campana_id}")
+        
         return existe
     
     def obtener_con_filtros(self, 

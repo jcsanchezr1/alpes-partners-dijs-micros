@@ -4,7 +4,7 @@ from typing import List, Optional
 from ..dominio.repositorios import RepositorioInfluencers
 from ..dominio.entidades import Influencer
 from ..dominio.objetos_valor import TipoInfluencer, EstadoInfluencer, Plataforma
-from ..dominio.excepciones import InfluencerNoEncontrado, EmailYaRegistrado
+from ..dominio.excepciones import InfluencerNoEncontrado
 
 from alpes_partners.seedwork.infraestructura.uow import UnidadTrabajo
 from .dto import InfluencerDTO, RegistrarInfluencerDTO

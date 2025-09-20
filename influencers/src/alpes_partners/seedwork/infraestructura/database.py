@@ -46,8 +46,16 @@ def init_db():
     # Importar todos los modelos para que se registren en Base.metadata
     from ...modulos.influencers.infraestructura.modelos import Base
     
+    # Importar modelos de saga para registro automático
+    try:
+        from ...modulos.sagas.infraestructura.repositorio_saga_log import SagaLogModelo
+        logger.info("Modelo SagaLogModelo importado para creación automática de tabla")
+    except ImportError as e:
+        logger.info(f"Saga models no disponibles (dependencias faltantes): {e}")
+    
     logger.info("Modelos registrados:")
     logger.info(f"   - Influencers: {len([t for t in Base.metadata.tables.keys() if 'influencer' in t.lower()])} tablas")
+    logger.info(f"   - Sagas: {len([t for t in Base.metadata.tables.keys() if 'saga' in t.lower()])} tablas")
     logger.info(f"   - Total tablas: {len(Base.metadata.tables)} tablas")
     
     # Solo recrear tablas si está explícitamente configurado
@@ -66,6 +74,13 @@ def init_db_flask_tables():
     """Inicializa las tablas usando Flask-SQLAlchemy."""
     # Importar todos los modelos
     from ...modulos.influencers.infraestructura.modelos import Base
+    
+    # Importar modelos de saga para registro automático
+    try:
+        from ...modulos.sagas.infraestructura.repositorio_saga_log import SagaLogModelo
+        logger.info("Modelo SagaLogModelo importado para Flask-SQLAlchemy")
+    except ImportError as e:
+        logger.info(f"Saga models no disponibles para Flask: {e}")
     
     # Crear todas las tablas definidas en los modelos
     Base.metadata.create_all(bind=engine)

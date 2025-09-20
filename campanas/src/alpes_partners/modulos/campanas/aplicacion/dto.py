@@ -101,3 +101,28 @@ class CampanaDTO(DTO):
     # Origen
     influencer_origen_id: Optional[str] = None
     categoria_origen: Optional[str] = None
+
+
+class EliminarCampanaDTO(DTO):
+    """DTO para eliminar una campaña."""
+    campana_id: str
+    influencer_id: Optional[str] = None  # Opcional para compensación
+    razon: str = "Compensación por falla en saga"
+    
+    @validator('campana_id')
+    def validar_campana_id(cls, v):
+        if not v or not v.strip():
+            raise ValueError('El ID de la campaña es requerido')
+        return v.strip()
+    
+    @validator('influencer_id')
+    def validar_influencer_id(cls, v):
+        if v is not None and v.strip():
+            return v.strip()
+        return None  # Permitir None para compensación
+    
+    @validator('razon')
+    def validar_razon(cls, v):
+        if not v or not v.strip():
+            raise ValueError('La razón es requerida')
+        return v.strip()

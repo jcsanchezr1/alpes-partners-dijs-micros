@@ -14,3 +14,20 @@ class ContratoCreadoPayload(Record):
 
 class EventoContratoCreado(EventoIntegracion):
     data = ContratoCreadoPayload()
+
+
+# Esquemas específicos para eventos de error
+class ContratoErrorPayload(Record):
+    id_contrato = String()
+    id_influencer = String()
+    id_campana = String()
+    monto_total = Float()
+    moneda = String()
+    tipo_contrato = String()
+    fecha_creacion = String()
+    error = String()
+    error_detalle = String()
+
+
+class EventoContratoError(EventoIntegracion):
+    data = ContratoErrorPayload()

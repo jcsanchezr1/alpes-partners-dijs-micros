@@ -5,7 +5,6 @@ from ....seedwork.aplicacion.handlers import ManejadorComando
 from ....seedwork.infraestructura.uow import UnidadTrabajo
 from ..dominio.repositorios import RepositorioInfluencers
 from ..dominio.entidades import Influencer
-from ..dominio.excepciones import EmailYaRegistrado
 from ..dominio.eventos import InfluencerRegistrado
 from ..infraestructura.despachadores import DespachadorInfluencers
 

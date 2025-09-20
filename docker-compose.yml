@@ -95,23 +95,44 @@ services:
     networks:
       - app
 
-  # Servicio de Reportes
-  reportes:
-    build: ./reportes
+  # Servicio de Saga (Coordinador)
+  saga:
+    build:
+      context: ./influencers
+      dockerfile: Dockerfile.saga
     ports:
-      - "8003:8080"
+      - "8084:8084"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/alpespartners_dijs
       - PULSAR_ADDRESS=pulsar
       - ENVIRONMENT=development
       - RECREATE_DB=false
       - LOG_LEVEL=INFO
+      - PORT=8084
     depends_on:
       - postgres
       - pulsar
-      - contratos  
+      - influencers
+      - campanas
+      - contratos
     volumes:
-      - ./reportes:/app
+      - ./influencers:/app
+    networks:
+      - app
+
+  # Servicio BFF
+  bff:
+    build: ./bff
+    ports:
+      - "8004:8080"
+    environment:
+      - PULSAR_ADDRESS=pulsar
+      - ENVIRONMENT=development
+      - LOG_LEVEL=INFO
+    depends_on:
+      - pulsar
+    volumes:
+      - ./bff:/app
     command: python run_flask.py
     networks:
       - app

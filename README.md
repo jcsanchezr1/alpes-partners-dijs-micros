@@ -9,7 +9,7 @@ alpes-partners-dijs-micros/
 ├── influencers/                  # Microservicio de Influencers
 ├── campanas/                     # Microservicio de Campañas
 ├── contratos/                    # Microservicio de Contratos
-├── reportes/                     # Microservicio de Reportes
+├── bff/                          # Microservicio BFF
 ├── scripts-despliegue-pulsar-vm-gcp/  # Scripts para despliegue de Pulsar
 ├── scripts-envio-eventos-pulsar/      # Scripts para envío de eventos
 ├── docker-compose.yml            # Orquestación completa de microservicios
@@ -56,18 +56,50 @@ alpes-partners-dijs-micros/
 - Eventos de integración vía Apache Pulsar
 - Genera eventos de `ContratoCreado`
 
-### 4. Reportes (`reportes/`)
+### 4. BFF (`bff/`)
 
-**Puerto**: 8003  
-**Base de datos**: PostgreSQL (puerto 5432)  
+**Puerto**: 8004  
+**Base de datos**: No requiere base de datos  
 **Funcionalidad**:
-- Generación automática de reportes basados en eventos
-- Consumo de eventos de contratos creados
+- Backend for Frontend que expone endpoints para iniciar el flujo de saga
+- Punto de entrada único para el frontend
+- Streaming en tiempo real de eventos creados
 
 **Características**:
-- Arquitectura DDD
-- Consume eventos de Contratos creados
-- Genera eventos de `ReporteCreado`
+- Endpoint `/health` para health check
+- Endpoint `/influencers` para crear influencer e iniciar el flujo completo
+- Endpoint `/stream` para streaming en tiempo real de contratos usando Server-Sent Events (SSE)
+- Envía eventos al topic `eventos-influencers` de Pulsar
+- Consume eventos del topic `eventos-contratos` de Pulsar
+- Arquitectura simple sin persistencia
+
+**Endpoints**:
+- `GET /health` - Health check del servicio (200)
+- `POST /influencers` - Crea un influencer e inicia el flujo de saga (202 - Accepted)
+- `GET /stream` - Streaming en tiempo real de eventos usando SSE (200)
+
+**Request Body para `/influencers`**:
+```json
+{
+  "id_influencer": "string",
+  "nombre": "string", 
+  "email": "string",
+  "categorias": ["string"],
+  "plataformas": ["string"], // opcional
+  "descripcion": "string", // opcional
+  "biografia": "string", // opcional
+  "sitio_web": "string", // opcional
+  "telefono": "string" // opcional
+}
+```
+
+**Streaming de Eventos (`/stream`)**:
+- **Tecnología**: Server-Sent Events (SSE)
+- **Formato**: `text/event-stream`
+- **Eventos**:
+  - `nuevo_evento`: Nuevos eventos recibidos en tiempo real
+  - `error`: Errores del servidor
+```
 
 ## Infraestructura Compartida
 
@@ -77,7 +109,6 @@ alpes-partners-dijs-micros/
   - `eventos-influencers`: Eventos del microservicio de influencers
   - `eventos-campanas`: Eventos del microservicio de campañas
   - `eventos-contratos`: Eventos del microservicio de contratos
-  - `eventos-reportes`: Eventos del microservicio de reportes
 
 ### Bases de Datos
 - **PostgreSQL**: Puerto 5432 (compartida por todos los microservicios)
@@ -103,7 +134,7 @@ Esto iniciará todos los servicios:
 - Microservicio Influencers (8000)
 - Microservicio Campañas (8001)
 - Microservicio Contratos (8002)
-- Microservicio Reportes (8003)
+- Microservicio BFF (8004)
 
 ### Verificación
 
@@ -113,7 +144,7 @@ Esto iniciará todos los servicios:
 docker logs alpes-partners-dijs-micros-influencers-1
 docker logs alpes-partners-dijs-micros-campanas-1
 docker logs alpes-partners-dijs-micros-contratos-1
-docker logs alpes-partners-dijs-micros-reportes-1
+docker logs alpes-partners-dijs-micros-bff-1
 ```
 
 ### Ejecución Individual
@@ -136,10 +167,10 @@ cd contratos/
 docker build -t contratos .
 docker run -p 8002:8080 contratos
 
-# Microservicio de reportes
-cd reportes/
-docker build -t reportes .
-docker run -p 8003:8080 reportes
+# Microservicio BFF
+cd bff/
+docker build -t bff .
+docker run -p 8004:8080 bff
 ```
 
 ## Flujo de Eventos
@@ -153,9 +184,359 @@ docker run -p 8003:8080 reportes
 7. **Contratos consume evento** → Microservicio Contratos
 8. **Contrato se persiste** → PostgreSQL (5432)
 9. **Evento `ContratoCreado`** → Pulsar (`eventos-contratos`)
-10. **Reportes consume evento** → Microservicio Reportes
-11. **Reporte se crea automáticamente** → PostgreSQL (5432)
-12. **Evento `ReporteCreado`** → Pulsar (`eventos-reportes`)
+
+## Implementación del Patrón Saga
+
+### Arquitectura de Orquestación
+
+El sistema implementa el **patrón Saga de Orquestación** para garantizar la consistencia eventual en transacciones distribuidas que abarcan múltiples microservicios. Esta implementación utiliza un coordinador centralizado que gestiona el flujo de la transacción y ejecuta compensaciones cuando es necesario.
+
+### Framework de Sagas (Seedwork)
+
+**Ubicación**: `influencers/src/alpes_partners/seedwork/aplicacion/sagas.py`
+
+El framework base define las interfaces y clases abstractas para implementar sagas:
+
+```python
+class CoordinadorSaga(ABC):
+    id_correlacion: uuid.UUID
+    
+    @abstractmethod
+    def persistir_en_saga_log(self, mensaje):
+        ...
+    
+    @abstractmethod
+    def construir_comando(self, evento: EventoDominio, tipo_comando: type) -> Comando:
+        ...
+    
+    def publicar_comando(self, evento: EventoDominio, tipo_comando: type):
+        comando = self.construir_comando(evento, tipo_comando)
+        ejecutar_commando(comando)
+```
+
+**Clases de Soporte**:
+
+```python
+@dataclass
+class Transaccion(Paso):
+    index: int
+    comando: Comando
+    evento: EventoDominio
+    error: EventoDominio
+    compensacion: Comando
+    exitosa: bool = False
+
+@dataclass
+class Inicio(Paso):
+    index: int = 0
+
+@dataclass
+class Fin(Paso):
+    index: int
+```
+
+- `Transaccion`: Define un paso de la saga con comando, evento, error y compensación
+- `CoordinadorOrquestacion`: Implementa la lógica de orquestación centralizada
+- `CoordinadorCoreografia`: Interfaz para futuras implementaciones de coreografía
+
+### Coordinador de Saga
+
+**Ubicación**: `influencers/src/alpes_partners/modulos/sagas/aplicacion/coordinadores/saga_alpes_partners.py`
+
+El coordinador `CoordinadorInfluencersCampanasContratos` implementa la interfaz `CoordinadorOrquestacion` y gestiona el ciclo de vida completo de las transacciones distribuidas:
+
+```python
+class CoordinadorInfluencersCampanasContratos(CoordinadorOrquestacion):
+    def __init__(self):
+        self.id_correlacion = str(uuid.uuid4())
+        self.repositorio_saga_log = RepositorioSagaLogSQLAlchemy()
+        self.pasos = []
+        self.index = 0
+        self.contexto_influencer = None
+        self.contexto_campana = None
+        self.inicializar_pasos()
+```
+
+### Definición de Pasos de la Saga
+
+La saga se compone de tres pasos principales con sus respectivas compensaciones:
+
+```python
+def inicializar_pasos(self):
+    self.pasos = [
+        Transaccion(
+            index=0,
+            comando=CrearInfluencer,
+            evento=InfluencerRegistrado,
+            error=ErrorCreacionInfluencer,
+            compensacion=EliminarInfluencer
+        ),
+        Transaccion(
+            index=1,
+            comando=CrearCampana,
+            evento=CampanaCreada,
+            error=ErrorCreacionCampana,
+            compensacion=EliminarCampana
+        ),
+        Transaccion(
+            index=2,
+            comando=CrearContrato,
+            evento=ContratoCreado,
+            error=ErrorCreacionContrato,
+            compensacion=EliminarContrato
+        )
+    ]
+```
+
+### Saga Log para Monitoreo
+
+**Ubicación**: `influencers/src/alpes_partners/modulos/sagas/infraestructura/repositorio_sqlalchemy.py`
+
+El sistema mantiene un log persistente de todas las transacciones de saga en la tabla `saga_log`:
+
+```sql
+CREATE TABLE saga_log (
+    id UUID PRIMARY KEY,
+    id_correlacion VARCHAR(255) NOT NULL,
+    index_paso INTEGER NOT NULL,
+    comando VARCHAR(255) NOT NULL,
+    evento VARCHAR(255),
+    error VARCHAR(255),
+    compensacion VARCHAR(255),
+    exitosa BOOLEAN DEFAULT FALSE,
+    fecha_evento TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**Campos del Saga Log**:
+- `id_correlacion`: Identificador único de la transacción distribuida
+- `index_paso`: Orden secuencial del paso en la saga
+- `comando`: Comando ejecutado en este paso
+- `evento`: Evento de éxito generado
+- `error`: Evento de error generado
+- `compensacion`: Comando de compensación asociado
+- `exitosa`: Estado de finalización del paso
+
+### Flujo de Ejecución
+
+#### 1. Inicio de la Saga y Conversión de Eventos
+```python
+def oir_mensaje(mensaje):
+    """Escuchar eventos de integración y convertirlos a eventos de dominio."""
+    logger.info(f"SAGA: Recibiendo mensaje de tipo: {type(mensaje).__name__}")
+    
+    try:
+        coordinador = CoordinadorInfluencersCampanasContratos()
+        
+        if isinstance(mensaje, InfluencerRegistrado):
+            evento_dominio = EventoDominioInfluencerRegistrado(mensaje)
+            coordinador.procesar_evento_influencer_registrado(evento_dominio)
+            
+        elif isinstance(mensaje, CampanaCreada):
+            evento_dominio = EventoDominioCampanaCreada(mensaje)
+            coordinador.procesar_evento_campana_creada(evento_dominio)
+            
+        elif isinstance(mensaje, ContratoCreado):
+            evento_dominio = EventoDominioContratoCreado(mensaje)
+            coordinador.procesar_evento_contrato_creado(evento_dominio)
+            
+        elif isinstance(mensaje, ErrorCreacionContrato):
+            coordinador.procesar_evento_error_contrato(mensaje)
+```
+
+#### 2. Procesamiento de Eventos Exitosos
+```python
+def procesar_evento_influencer_registrado(self, evento: EventoDominioInfluencerRegistrado):
+    self.contexto_influencer = evento
+    self._procesar_evento(evento)
+    self._ejecutar_siguiente_paso()
+```
+
+#### 3. Manejo de Errores y Compensación
+```python
+def procesar_evento_error_contrato(self, evento: ErrorCreacionContrato):
+    logger.error(f"SAGA: Procesando error de contrato - Campaña: {evento.campana_id}")
+    
+    # Ejecutar compensaciones en orden inverso
+    self._ejecutar_compensacion_campana(evento.campana_id)
+    self._ejecutar_compensacion_influencer()
+```
+
+### Comandos de Compensación
+
+**Ubicación**: `influencers/src/alpes_partners/modulos/sagas/aplicacion/comandos/comandos_externos.py`
+
+El sistema define comandos específicos para cada operación de compensación:
+
+```python
+@dataclass
+class EliminarInfluencer(Comando):
+    influencer_id: str
+    razon: str = "Compensación por falla en saga"
+
+@dataclass
+class EliminarCampana(Comando):
+    campana_id: str
+    influencer_id: str
+    razon: str = "Compensación por falla en saga"
+
+@dataclass
+class EliminarContrato(Comando):
+    contrato_id: str
+    campana_id: str
+    influencer_id: str
+    razon: str = "Compensación por falla en saga"
+```
+
+### Handlers de Compensación
+
+**Ubicación**: `influencers/src/alpes_partners/modulos/sagas/aplicacion/handlers.py`
+
+Los handlers ejecutan las operaciones de compensación utilizando los repositorios correspondientes:
+
+```python
+@staticmethod
+def handle_eliminar_influencer(comando: EliminarInfluencer):
+    repositorio = fabrica_repositorio.crear_objeto(RepositorioInfluencersSQLAlchemy)
+    repositorio.eliminar(comando.influencer_id)
+    logger.info(f"SAGA HANDLER: Influencer {comando.influencer_id} eliminado")
+```
+
+### Eventos de Dominio e Integración de la Saga
+
+**Ubicación**: `influencers/src/alpes_partners/modulos/sagas/dominio/eventos.py`
+
+El sistema define eventos locales para evitar dependencias directas entre microservicios:
+
+#### **Eventos de Integración (Representaciones Locales)**
+
+```python
+class CampanaCreada(EventoIntegracion):
+    """Evento local que representa cuando se crea una campaña (desde microservicio campanas)."""
+    
+    def __init__(self, campana_id: str, nombre: str, descripcion: str, 
+                 tipo_comision: str, valor_comision: float, moneda: str,
+                 categorias_objetivo: List[str], fecha_inicio: datetime,
+                 influencer_id: str = None, influencer_nombre: str = None,
+                 influencer_email: str = None):
+        super().__init__()
+        self.campana_id = campana_id
+        self.nombre = nombre
+        # ... otros campos
+
+class ContratoCreado(EventoIntegracion):
+    """Evento local que representa cuando se crea un contrato (desde microservicio contratos)."""
+    
+    def __init__(self, contrato_id: str, influencer_id: str, campana_id: str,
+                 monto_total: float, moneda: str, fecha_inicio: datetime,
+                 fecha_fin: datetime, tipo_contrato: str, fecha_creacion: datetime):
+        super().__init__()
+        self.contrato_id = contrato_id
+        self.influencer_id = influencer_id
+        # ... otros campos
+```
+
+#### **Eventos de Dominio (Errores y Compensaciones)**
+
+```python
+class ErrorCreacionCampana(EventoDominio):
+    """Evento de error cuando falla la creación de campaña."""
+    
+    def __init__(self, influencer_id: str, error: str):
+        super().__init__()
+        self.influencer_id = influencer_id
+        self.error = error
+
+class ErrorCreacionContrato(EventoDominio):
+    """Evento de error cuando falla la creación de contrato."""
+    
+    def __init__(self, campana_id: str, error: str):
+        super().__init__()
+        self.campana_id = campana_id
+        self.error = error
+
+class ErrorCreacionInfluencer(EventoDominio):
+    """Evento de error cuando falla la creación de influencer."""
+    
+    def __init__(self, influencer_id: str, error: str):
+        super().__init__()
+        self.influencer_id = influencer_id
+        self.error = error
+
+class CompensacionEjecutada(EventoDominio):
+    """Evento que indica que una compensación fue ejecutada exitosamente."""
+    
+    def __init__(self, comando: str, campana_id: str, influencer_id: str, 
+                 razon: str, fecha_ejecucion: datetime):
+        super().__init__()
+        self.comando = comando
+        self.campana_id = campana_id
+        self.influencer_id = influencer_id
+        self.razon = razon
+        self.fecha_ejecucion = fecha_ejecucion
+
+class CampanaEliminacionRequerida(EventoIntegracion):
+    """Evento de integración para solicitar eliminación de campaña (compensación)."""
+    
+    def __init__(self, campana_id: str, influencer_id: str, razon: str):
+        super().__init__()
+        self.campana_id = campana_id
+        self.influencer_id = influencer_id
+        self.razon = razon
+```
+
+#### **Conversión de Eventos de Integración a Dominio**
+
+**Ubicación**: `influencers/src/alpes_partners/modulos/sagas/aplicacion/coordinadores/saga_alpes_partners.py`
+
+El coordinador convierte eventos de integración a eventos de dominio para procesamiento interno:
+
+```python
+class EventoDominioInfluencerRegistrado(EventoDominio):
+    """Evento de dominio para influencer registrado (conversión desde integración)."""
+    
+    def __init__(self, evento_integracion: InfluencerRegistrado):
+        super().__init__()
+        self.influencer_id = evento_integracion.influencer_id
+        self.nombre = evento_integracion.nombre
+        self.email = evento_integracion.email
+        self.categorias = evento_integracion.categorias
+        self.plataformas = evento_integracion.plataformas
+        self.fecha_registro = evento_integracion.fecha_registro
+
+class EventoDominioCampanaCreada(EventoDominio):
+    """Evento de dominio para campaña creada (conversión desde integración)."""
+    
+    def __init__(self, evento_integracion: CampanaCreada):
+        super().__init__()
+        self.campana_id = evento_integracion.campana_id
+        self.nombre = evento_integracion.nombre
+        self.descripcion = evento_integracion.descripcion
+        # ... otros campos
+
+class EventoDominioContratoCreado(EventoDominio):
+    """Evento de dominio para contrato creado (conversión desde integración)."""
+    
+    def __init__(self, evento_integracion: ContratoCreado):
+        super().__init__()
+        self.contrato_id = evento_integracion.contrato_id
+        self.influencer_id = evento_integracion.influencer_id
+        self.campana_id = evento_integracion.campana_id
+        # ... otros campos
+```
+
+### Integración con Pulsar
+
+**Tópicos de Saga**:
+- `eventos-contratos-error`: Eventos de error de contratos
+- `eventos-campanas-eliminacion-v2`: Comandos de eliminación de campañas
+- `eventos-influencers-eliminacion`: Comandos de eliminación de influencers
+
+**Despachadores**:
+- `DespachadorSaga`: Publica eventos de compensación
+- `ConsumidorSaga`: Procesa eventos de error y ejecuta compensaciones
+
+
 
 ## Documentación
 
@@ -262,29 +643,6 @@ class EventoContratoCreado(EventoIntegracion):
 - **Integración**: Cuando se crea un contrato, reportes debe generar métricas automáticamente
 - **Carga de Estado**: Enviamos todos los datos del contrato (montos, fechas, participantes) para que reportes tenga todo lo necesario
 
-#### **4. Microservicio Reportes**
-
-**Evento de Integración**: `ReporteCreado`
-
-**Ubicación**: `reportes/src/alpes_partners/modulos/reportes/infraestructura/schema/eventos.py`
-
-```python
-class ReporteCreadoPayload(Record):
-    """Payload del evento ReporteCreado - Estado Completo"""
-    reporte_id = String()
-    tipo_reporte = String()
-    fecha_generacion = String()
-    datos_reporte = String()  
-    contratos_incluidos = Array(String())
-
-class EventoReporteCreado(EventoIntegracion):
-    """Evento de integración para reporte creado"""
-    data = ReporteCreadoPayload()
-```
-
-**¿Por qué lo hacemos así?**:
-- **Integración**: Cuando generamos un reporte, otros sistemas pueden consumirlo para análisis
-- **Carga de Estado**: Enviamos todas las métricas y datos agregados para que otros sistemas tengan la información completa
 
 ### Esquemas y Evolución
 
@@ -346,7 +704,6 @@ En nuestro proyecto decidimos usar una **topología híbrida** porque nos permit
 - influencers_schema    -- Microservicio Influencers
 - campanas_schema       -- Microservicio Campañas  
 - contratos_schema      -- Microservicio Contratos
-- reportes_schema       -- Microservicio Reportes
 ```
 
 #### **Ejemplos de Implementación**
@@ -392,19 +749,6 @@ class ContratoDB(DeclarativeBase):
     fecha_creacion = Column(DateTime)
 ```
 
-**4. Microservicio Reportes**
-```python
-# reportes/src/alpes_partners/seedwork/infraestructura/database.py
-class ReporteDB(DeclarativeBase):
-    __tablename__ = 'reportes'
-    __table_args__ = {'schema': 'reportes_schema'}
-    
-    id = Column(String, primary_key=True)
-    tipo_reporte = Column(String)
-    datos_reporte = Column(JSON)
-    fecha_generacion = Column(DateTime)
-```
-
 ### ¿Por qué no las otras topologías?
 
 #### **Topología Centralizada**
@@ -415,8 +759,7 @@ class ReporteDB(DeclarativeBase):
   CREATE TABLE datos_compartidos (
       influencer_id VARCHAR,
       campana_id VARCHAR,
-      contrato_id VARCHAR,
-      reporte_id VARCHAR
+      contrato_id VARCHAR
   );
   ```
 
@@ -431,8 +774,6 @@ class ReporteDB(DeclarativeBase):
     postgres-campanas:
       image: postgres:13
     postgres-contratos:
-      image: postgres:13
-    postgres-reportes:
       image: postgres:13
   ```
 
@@ -483,21 +824,17 @@ El modelo CRUD + Pulsar nos permite mantener la simplicidad de las operaciones C
 ### Descripción de Actividades por Miembro del Equipo
 
 **Sergio Celis**
-- Desarrollo completo del microservicio de Campañas
-- Definición y especificación de los 3 escenarios de calidad
+- Desarrollo del BFF
 
 **Diego Jaramillo**
-- Desarrollo completo del microservicio de Influencers
-- Definición y especificación de los 3 escenarios de calidad
+- Desarrollo del BFF
 
 **Julio Sánchez**
-- Desarrollo del microservicio de Contratos
-- Implementación y ajustes de comunicación orientada a eventos
+- Desarrollo e implementación de la SAGA
 - Configuración y despliegue de la solución en Google Cloud Platform (GCP)
 
 **Ian Beltrán**
-- Desarrollo del microservicio de Reportes
-- Implementación y ajustes de comunicación orientada a eventos
+- Desarrollo e implementación de la SAGA
 - Configuración y despliegue de la solución en Google Cloud Platform (GCP)
 
 ## Desarrollo
@@ -544,7 +881,8 @@ Nota: Si generar error de permisos correr `chmod +x startup-script.sh`
 docker build -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/influencers:1.0 .
 docker build -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/campanas:1.0 .
 docker build -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/contratos:1.0 .
-docker build -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/reportes:1.0 .
+docker build -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/saga:1.0 .
+docker build -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/bff:1.0 .
 ```
 
 Para arquitectura amd64
@@ -552,7 +890,8 @@ Para arquitectura amd64
 docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/influencers:1.0 .
 docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/campanas:1.0 .
 docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/contratos:1.0 .
-docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/reportes:1.0 .
+docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/saga:1.0 .
+docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/bff:1.0 .
 ```
 
 3. Subir la imagen al **Artifactory Registry** creado en la cuenta de **GCP** con el siguiente comando:
@@ -560,7 +899,8 @@ docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-nativ
 docker push us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/influencers:1.0
 docker push us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/campanas:1.0
 docker push us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/contratos:1.0
-docker push us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/reportes:1.0
+docker push us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/saga:1.0
+docker push us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/bff:1.0
 ```
 
 4. Desplegar los servicio en Cloud Run
@@ -574,7 +914,7 @@ gcloud run deploy influencers-ms \
     --memory 16Gi \
     --cpu 4 \
     --min-instances 1 \
-    --max-instances 1
+    --max-instances 10
 ```
 
 Microservicio Campañas
@@ -586,7 +926,7 @@ gcloud run deploy campanas-ms \
     --memory 16Gi \
     --cpu 4 \
     --min-instances 1 \
-    --max-instances 1
+    --max-instances 10
 ```
 
 Microservicio Contratos
@@ -598,19 +938,31 @@ gcloud run deploy contratos-ms \
     --memory 16Gi \
     --cpu 4 \
     --min-instances 1 \
-    --max-instances 1
+    --max-instances 10
 ```
 
-Microservicio Reportes
+Saga
 ```bash
-gcloud run deploy reportes-ms \
-    --image us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/reportes:1.0 \
+gcloud run deploy saga-ms \
+    --image us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/saga:1.0 \
     --region us-central1 \
     --set-env-vars DATABASE_URL="postgresql://postgres:passwordDB10@IP_DB:5432/postgres",PULSAR_ADDRESS="IP_VM",RECREATE_DB=false\
     --memory 16Gi \
     --cpu 4 \
     --min-instances 1 \
-    --max-instances 1
+    --max-instances 10
+```
+
+BFF
+```bash
+gcloud run deploy bff-ms \
+    --image us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/bff:1.0 \
+    --region us-central1 \
+    --set-env-vars DATABASE_URL="postgresql://postgres:passwordDB10@IP_DB:5432/postgres",PULSAR_ADDRESS="IP_VM",RECREATE_DB=false\
+    --memory 16Gi \
+    --cpu 4 \
+    --min-instances 1 \
+    --max-instances 10
 ```
 
 ## Scripts envio eventos pulsar
@@ -642,14 +994,14 @@ export PULSAR_ADDRESS=34.123.45.67
 
 ```bash
 # Ejecución básica (usa localhost)
-python scripts-envio-eventos-pulsar/enviar_evento_reportes_pulsar.py
+python scripts-envio-eventos-pulsar/enviar_evento_crear_influencer_pulsar.py
 
 # Con servidor remoto
-PULSAR_ADDRESS=mi-servidor-pulsar python scripts-envio-eventos-pulsar/enviar_evento_reportes_pulsar.py
+PULSAR_ADDRESS=mi-servidor-pulsar python scripts-envio-eventos-pulsar/enviar_evento_crear_influencer_pulsar.py
 
 # Hacer ejecutable (opcional)
-chmod +x scripts-envio-eventos-pulsar/enviar_evento_reportes_pulsar.py
-./scripts-envio-eventos-pulsar/enviar_evento_reportes_pulsar.py
+chmod +x scripts-envio-eventos-pulsar/enviar_evento_crear_influencer_pulsar.py
+./scripts-envio-eventos-pulsar/enviar_evento_crear_influencer_pulsar.py
 ```
 
 ### Datos del Evento

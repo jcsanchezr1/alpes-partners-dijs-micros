@@ -29,7 +29,7 @@ class FabricaRepositorioCampanas:
     """Fábrica para crear repositorios de campanas."""
     
     def crear_objeto(self, obj: type, mapeador: Any = None) -> RepositorioCampanasSQLAlchemy:
-        if obj == RepositorioCampanasSQLAlchemy.__class__:
+        if obj == RepositorioCampanasSQLAlchemy:
             # Crear una instancia del repositorio SIN sesión (como en el tutorial)
             # El repositorio usará db.session directamente
             return RepositorioCampanasSQLAlchemy()

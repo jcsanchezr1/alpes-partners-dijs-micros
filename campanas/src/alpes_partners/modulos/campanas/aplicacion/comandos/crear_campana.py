@@ -9,7 +9,7 @@ from ...dominio.entidades import Campana
 from .....seedwork.infraestructura.uow import UnidadTrabajoPuerto
 from ..mapeadores import MapeadorCampana
 from ...infraestructura.repositorios import RepositorioCampanasSQLAlchemy
-from ...dominio.excepciones import CampanaYaExisteExcepcion
+
 
 import logging
 
@@ -52,15 +52,12 @@ class RegistrarCampanaHandler(RegistrarCampanaBaseHandler):
         logger.info(f"COMANDO HANDLER: Iniciando registro de campana - Nombre: {comando.nombre}")
         
         # Crear repositorio para validaciones de dominio
-        repositorio = self.fabrica_repositorio.crear_objeto(RepositorioCampanasSQLAlchemy.__class__)
+        repositorio = self.fabrica_repositorio.crear_objeto(RepositorioCampanasSQLAlchemy)
         
-        # VALIDACIÓN DE DOMINIO: Verificar unicidad del nombre ANTES de crear la entidad
-        logger.info(f"COMANDO HANDLER: Verificando unicidad del nombre: {comando.nombre}")
-        if repositorio.existe_con_nombre(comando.nombre):
-            logger.warning(f"COMANDO HANDLER: Nombre ya registrado: {comando.nombre}")
-            raise CampanaYaExisteExcepcion(f"Ya existe una campana con el nombre {comando.nombre}")
-        
-        logger.info(f"COMANDO HANDLER: Nombre disponible: {comando.nombre}")
+        # VALIDACIÓN DE DOMINIO: Removida validación de unicidad de nombre
+        # para permitir compensación de saga (múltiples campañas con mismo nombre)
+        logger.info(f"COMANDO HANDLER: Creando campaña - Nombre: {comando.nombre}")
+        logger.info(f"COMANDO HANDLER: Validación de unicidad deshabilitada para compensación de saga")
         
         # DEBUG: Mostrar datos del influencer en el comando
         logger.info(f"COMANDO HANDLER: Datos del influencer en comando:")

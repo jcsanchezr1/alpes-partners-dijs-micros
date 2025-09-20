@@ -9,7 +9,6 @@ from ...dominio.entidades import Influencer
 from .....seedwork.infraestructura.uow import UnidadTrabajoPuerto
 from ..mapeadores import MapeadorInfluencer
 from ...infraestructura.repositorio_sqlalchemy import RepositorioInfluencersSQLAlchemy
-from ...dominio.excepciones import EmailYaRegistrado
 
 import logging
 
@@ -37,14 +36,8 @@ class RegistrarInfluencerHandler(RegistrarInfluencerBaseHandler):
         logger.info(f"COMANDO HANDLER: Iniciando registro de influencer - Email: {comando.email}")
         
         # Crear repositorio para validaciones de dominio
-        repositorio = self.fabrica_repositorio.crear_objeto(RepositorioInfluencersSQLAlchemy.__class__)
-        
-        # VALIDACIÓN DE DOMINIO: Verificar unicidad del email ANTES de crear la entidad
-        logger.info(f"COMANDO HANDLER: Verificando unicidad del email: {comando.email}")
-        if repositorio.existe_email(comando.email):
-            logger.warning(f"COMANDO HANDLER: Email ya registrado: {comando.email}")
-            raise EmailYaRegistrado(f"Ya existe un influencer con el email {comando.email}")
-        
+        repositorio = self.fabrica_repositorio.crear_objeto(RepositorioInfluencersSQLAlchemy)
+
         logger.info(f"COMANDO HANDLER: Email disponible: {comando.email}")
         
         # Crear la entidad solo después de validar las reglas de dominio

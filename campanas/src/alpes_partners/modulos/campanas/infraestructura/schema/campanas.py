@@ -34,7 +34,7 @@ class Campanas(Base):
     
     # Campos básicos
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    nombre = Column(String(200), nullable=False, unique=True, index=True)
+    nombre = Column(String(200), nullable=False, index=True)
     descripcion = Column(Text, nullable=False)
     
     # Términos de comisión

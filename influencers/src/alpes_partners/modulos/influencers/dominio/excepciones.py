@@ -5,12 +5,6 @@ class InfluencerNoEncontrado(ExcepcionDominio):
     """Excepción lanzada cuando no se encuentra un influencer."""
     pass
 
-
-class EmailYaRegistrado(ExcepcionDominio):
-    """Excepción lanzada cuando se intenta registrar un email que ya existe."""
-    pass
-
-
 class PlataformaNoSoportada(ExcepcionDominio):
     """Excepción lanzada cuando se intenta usar una plataforma no soportada."""
     pass
