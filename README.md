@@ -63,16 +63,20 @@ alpes-partners-dijs-micros/
 **Funcionalidad**:
 - Backend for Frontend que expone endpoints para iniciar el flujo de saga
 - Punto de entrada único para el frontend
+- Streaming en tiempo real de eventos creados
 
 **Características**:
 - Endpoint `/health` para health check
 - Endpoint `/influencers` para crear influencer e iniciar el flujo completo
+- Endpoint `/stream` para streaming en tiempo real de contratos usando Server-Sent Events (SSE)
 - Envía eventos al topic `eventos-influencers` de Pulsar
+- Consume eventos del topic `eventos-contratos` de Pulsar
 - Arquitectura simple sin persistencia
 
 **Endpoints**:
 - `GET /health` - Health check del servicio (200)
 - `POST /influencers` - Crea un influencer e inicia el flujo de saga (202 - Accepted)
+- `GET /stream` - Streaming en tiempo real de eventos usando SSE (200)
 
 **Request Body para `/influencers`**:
 ```json
@@ -87,6 +91,14 @@ alpes-partners-dijs-micros/
   "sitio_web": "string", // opcional
   "telefono": "string" // opcional
 }
+```
+
+**Streaming de Eventos (`/stream`)**:
+- **Tecnología**: Server-Sent Events (SSE)
+- **Formato**: `text/event-stream`
+- **Eventos**:
+  - `nuevo_evento`: Nuevos eventos recibidos en tiempo real
+  - `error`: Errores del servidor
 ```
 
 ## Infraestructura Compartida
