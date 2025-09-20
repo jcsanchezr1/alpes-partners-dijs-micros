@@ -185,6 +185,359 @@ docker run -p 8004:8080 bff
 8. **Contrato se persiste** → PostgreSQL (5432)
 9. **Evento `ContratoCreado`** → Pulsar (`eventos-contratos`)
 
+## Implementación del Patrón Saga
+
+### Arquitectura de Orquestación
+
+El sistema implementa el **patrón Saga de Orquestación** para garantizar la consistencia eventual en transacciones distribuidas que abarcan múltiples microservicios. Esta implementación utiliza un coordinador centralizado que gestiona el flujo de la transacción y ejecuta compensaciones cuando es necesario.
+
+### Framework de Sagas (Seedwork)
+
+**Ubicación**: `influencers/src/alpes_partners/seedwork/aplicacion/sagas.py`
+
+El framework base define las interfaces y clases abstractas para implementar sagas:
+
+```python
+class CoordinadorSaga(ABC):
+    id_correlacion: uuid.UUID
+    
+    @abstractmethod
+    def persistir_en_saga_log(self, mensaje):
+        ...
+    
+    @abstractmethod
+    def construir_comando(self, evento: EventoDominio, tipo_comando: type) -> Comando:
+        ...
+    
+    def publicar_comando(self, evento: EventoDominio, tipo_comando: type):
+        comando = self.construir_comando(evento, tipo_comando)
+        ejecutar_commando(comando)
+```
+
+**Clases de Soporte**:
+
+```python
+@dataclass
+class Transaccion(Paso):
+    index: int
+    comando: Comando
+    evento: EventoDominio
+    error: EventoDominio
+    compensacion: Comando
+    exitosa: bool = False
+
+@dataclass
+class Inicio(Paso):
+    index: int = 0
+
+@dataclass
+class Fin(Paso):
+    index: int
+```
+
+- `Transaccion`: Define un paso de la saga con comando, evento, error y compensación
+- `CoordinadorOrquestacion`: Implementa la lógica de orquestación centralizada
+- `CoordinadorCoreografia`: Interfaz para futuras implementaciones de coreografía
+
+### Coordinador de Saga
+
+**Ubicación**: `influencers/src/alpes_partners/modulos/sagas/aplicacion/coordinadores/saga_alpes_partners.py`
+
+El coordinador `CoordinadorInfluencersCampanasContratos` implementa la interfaz `CoordinadorOrquestacion` y gestiona el ciclo de vida completo de las transacciones distribuidas:
+
+```python
+class CoordinadorInfluencersCampanasContratos(CoordinadorOrquestacion):
+    def __init__(self):
+        self.id_correlacion = str(uuid.uuid4())
+        self.repositorio_saga_log = RepositorioSagaLogSQLAlchemy()
+        self.pasos = []
+        self.index = 0
+        self.contexto_influencer = None
+        self.contexto_campana = None
+        self.inicializar_pasos()
+```
+
+### Definición de Pasos de la Saga
+
+La saga se compone de tres pasos principales con sus respectivas compensaciones:
+
+```python
+def inicializar_pasos(self):
+    self.pasos = [
+        Transaccion(
+            index=0,
+            comando=CrearInfluencer,
+            evento=InfluencerRegistrado,
+            error=ErrorCreacionInfluencer,
+            compensacion=EliminarInfluencer
+        ),
+        Transaccion(
+            index=1,
+            comando=CrearCampana,
+            evento=CampanaCreada,
+            error=ErrorCreacionCampana,
+            compensacion=EliminarCampana
+        ),
+        Transaccion(
+            index=2,
+            comando=CrearContrato,
+            evento=ContratoCreado,
+            error=ErrorCreacionContrato,
+            compensacion=EliminarContrato
+        )
+    ]
+```
+
+### Saga Log para Monitoreo
+
+**Ubicación**: `influencers/src/alpes_partners/modulos/sagas/infraestructura/repositorio_sqlalchemy.py`
+
+El sistema mantiene un log persistente de todas las transacciones de saga en la tabla `saga_log`:
+
+```sql
+CREATE TABLE saga_log (
+    id UUID PRIMARY KEY,
+    id_correlacion VARCHAR(255) NOT NULL,
+    index_paso INTEGER NOT NULL,
+    comando VARCHAR(255) NOT NULL,
+    evento VARCHAR(255),
+    error VARCHAR(255),
+    compensacion VARCHAR(255),
+    exitosa BOOLEAN DEFAULT FALSE,
+    fecha_evento TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**Campos del Saga Log**:
+- `id_correlacion`: Identificador único de la transacción distribuida
+- `index_paso`: Orden secuencial del paso en la saga
+- `comando`: Comando ejecutado en este paso
+- `evento`: Evento de éxito generado
+- `error`: Evento de error generado
+- `compensacion`: Comando de compensación asociado
+- `exitosa`: Estado de finalización del paso
+
+### Flujo de Ejecución
+
+#### 1. Inicio de la Saga y Conversión de Eventos
+```python
+def oir_mensaje(mensaje):
+    """Escuchar eventos de integración y convertirlos a eventos de dominio."""
+    logger.info(f"SAGA: Recibiendo mensaje de tipo: {type(mensaje).__name__}")
+    
+    try:
+        coordinador = CoordinadorInfluencersCampanasContratos()
+        
+        if isinstance(mensaje, InfluencerRegistrado):
+            evento_dominio = EventoDominioInfluencerRegistrado(mensaje)
+            coordinador.procesar_evento_influencer_registrado(evento_dominio)
+            
+        elif isinstance(mensaje, CampanaCreada):
+            evento_dominio = EventoDominioCampanaCreada(mensaje)
+            coordinador.procesar_evento_campana_creada(evento_dominio)
+            
+        elif isinstance(mensaje, ContratoCreado):
+            evento_dominio = EventoDominioContratoCreado(mensaje)
+            coordinador.procesar_evento_contrato_creado(evento_dominio)
+            
+        elif isinstance(mensaje, ErrorCreacionContrato):
+            coordinador.procesar_evento_error_contrato(mensaje)
+```
+
+#### 2. Procesamiento de Eventos Exitosos
+```python
+def procesar_evento_influencer_registrado(self, evento: EventoDominioInfluencerRegistrado):
+    self.contexto_influencer = evento
+    self._procesar_evento(evento)
+    self._ejecutar_siguiente_paso()
+```
+
+#### 3. Manejo de Errores y Compensación
+```python
+def procesar_evento_error_contrato(self, evento: ErrorCreacionContrato):
+    logger.error(f"SAGA: Procesando error de contrato - Campaña: {evento.campana_id}")
+    
+    # Ejecutar compensaciones en orden inverso
+    self._ejecutar_compensacion_campana(evento.campana_id)
+    self._ejecutar_compensacion_influencer()
+```
+
+### Comandos de Compensación
+
+**Ubicación**: `influencers/src/alpes_partners/modulos/sagas/aplicacion/comandos/comandos_externos.py`
+
+El sistema define comandos específicos para cada operación de compensación:
+
+```python
+@dataclass
+class EliminarInfluencer(Comando):
+    influencer_id: str
+    razon: str = "Compensación por falla en saga"
+
+@dataclass
+class EliminarCampana(Comando):
+    campana_id: str
+    influencer_id: str
+    razon: str = "Compensación por falla en saga"
+
+@dataclass
+class EliminarContrato(Comando):
+    contrato_id: str
+    campana_id: str
+    influencer_id: str
+    razon: str = "Compensación por falla en saga"
+```
+
+### Handlers de Compensación
+
+**Ubicación**: `influencers/src/alpes_partners/modulos/sagas/aplicacion/handlers.py`
+
+Los handlers ejecutan las operaciones de compensación utilizando los repositorios correspondientes:
+
+```python
+@staticmethod
+def handle_eliminar_influencer(comando: EliminarInfluencer):
+    repositorio = fabrica_repositorio.crear_objeto(RepositorioInfluencersSQLAlchemy)
+    repositorio.eliminar(comando.influencer_id)
+    logger.info(f"SAGA HANDLER: Influencer {comando.influencer_id} eliminado")
+```
+
+### Eventos de Dominio e Integración de la Saga
+
+**Ubicación**: `influencers/src/alpes_partners/modulos/sagas/dominio/eventos.py`
+
+El sistema define eventos locales para evitar dependencias directas entre microservicios:
+
+#### **Eventos de Integración (Representaciones Locales)**
+
+```python
+class CampanaCreada(EventoIntegracion):
+    """Evento local que representa cuando se crea una campaña (desde microservicio campanas)."""
+    
+    def __init__(self, campana_id: str, nombre: str, descripcion: str, 
+                 tipo_comision: str, valor_comision: float, moneda: str,
+                 categorias_objetivo: List[str], fecha_inicio: datetime,
+                 influencer_id: str = None, influencer_nombre: str = None,
+                 influencer_email: str = None):
+        super().__init__()
+        self.campana_id = campana_id
+        self.nombre = nombre
+        # ... otros campos
+
+class ContratoCreado(EventoIntegracion):
+    """Evento local que representa cuando se crea un contrato (desde microservicio contratos)."""
+    
+    def __init__(self, contrato_id: str, influencer_id: str, campana_id: str,
+                 monto_total: float, moneda: str, fecha_inicio: datetime,
+                 fecha_fin: datetime, tipo_contrato: str, fecha_creacion: datetime):
+        super().__init__()
+        self.contrato_id = contrato_id
+        self.influencer_id = influencer_id
+        # ... otros campos
+```
+
+#### **Eventos de Dominio (Errores y Compensaciones)**
+
+```python
+class ErrorCreacionCampana(EventoDominio):
+    """Evento de error cuando falla la creación de campaña."""
+    
+    def __init__(self, influencer_id: str, error: str):
+        super().__init__()
+        self.influencer_id = influencer_id
+        self.error = error
+
+class ErrorCreacionContrato(EventoDominio):
+    """Evento de error cuando falla la creación de contrato."""
+    
+    def __init__(self, campana_id: str, error: str):
+        super().__init__()
+        self.campana_id = campana_id
+        self.error = error
+
+class ErrorCreacionInfluencer(EventoDominio):
+    """Evento de error cuando falla la creación de influencer."""
+    
+    def __init__(self, influencer_id: str, error: str):
+        super().__init__()
+        self.influencer_id = influencer_id
+        self.error = error
+
+class CompensacionEjecutada(EventoDominio):
+    """Evento que indica que una compensación fue ejecutada exitosamente."""
+    
+    def __init__(self, comando: str, campana_id: str, influencer_id: str, 
+                 razon: str, fecha_ejecucion: datetime):
+        super().__init__()
+        self.comando = comando
+        self.campana_id = campana_id
+        self.influencer_id = influencer_id
+        self.razon = razon
+        self.fecha_ejecucion = fecha_ejecucion
+
+class CampanaEliminacionRequerida(EventoIntegracion):
+    """Evento de integración para solicitar eliminación de campaña (compensación)."""
+    
+    def __init__(self, campana_id: str, influencer_id: str, razon: str):
+        super().__init__()
+        self.campana_id = campana_id
+        self.influencer_id = influencer_id
+        self.razon = razon
+```
+
+#### **Conversión de Eventos de Integración a Dominio**
+
+**Ubicación**: `influencers/src/alpes_partners/modulos/sagas/aplicacion/coordinadores/saga_alpes_partners.py`
+
+El coordinador convierte eventos de integración a eventos de dominio para procesamiento interno:
+
+```python
+class EventoDominioInfluencerRegistrado(EventoDominio):
+    """Evento de dominio para influencer registrado (conversión desde integración)."""
+    
+    def __init__(self, evento_integracion: InfluencerRegistrado):
+        super().__init__()
+        self.influencer_id = evento_integracion.influencer_id
+        self.nombre = evento_integracion.nombre
+        self.email = evento_integracion.email
+        self.categorias = evento_integracion.categorias
+        self.plataformas = evento_integracion.plataformas
+        self.fecha_registro = evento_integracion.fecha_registro
+
+class EventoDominioCampanaCreada(EventoDominio):
+    """Evento de dominio para campaña creada (conversión desde integración)."""
+    
+    def __init__(self, evento_integracion: CampanaCreada):
+        super().__init__()
+        self.campana_id = evento_integracion.campana_id
+        self.nombre = evento_integracion.nombre
+        self.descripcion = evento_integracion.descripcion
+        # ... otros campos
+
+class EventoDominioContratoCreado(EventoDominio):
+    """Evento de dominio para contrato creado (conversión desde integración)."""
+    
+    def __init__(self, evento_integracion: ContratoCreado):
+        super().__init__()
+        self.contrato_id = evento_integracion.contrato_id
+        self.influencer_id = evento_integracion.influencer_id
+        self.campana_id = evento_integracion.campana_id
+        # ... otros campos
+```
+
+### Integración con Pulsar
+
+**Tópicos de Saga**:
+- `eventos-contratos-error`: Eventos de error de contratos
+- `eventos-campanas-eliminacion-v2`: Comandos de eliminación de campañas
+- `eventos-influencers-eliminacion`: Comandos de eliminación de influencers
+
+**Despachadores**:
+- `DespachadorSaga`: Publica eventos de compensación
+- `ConsumidorSaga`: Procesa eventos de error y ejecuta compensaciones
+
+
+
 ## Documentación
 
 ### Tipos de Eventos de Integración
