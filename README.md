@@ -881,6 +881,8 @@ Nota: Si generar error de permisos correr `chmod +x startup-script.sh`
 docker build -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/influencers:1.0 .
 docker build -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/campanas:1.0 .
 docker build -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/contratos:1.0 .
+docker build -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/saga:1.0 .
+docker build -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/bff:1.0 .
 ```
 
 Para arquitectura amd64
@@ -888,6 +890,8 @@ Para arquitectura amd64
 docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/influencers:1.0 .
 docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/campanas:1.0 .
 docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/contratos:1.0 .
+docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/saga:1.0 .
+docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/bff:1.0 .
 ```
 
 3. Subir la imagen al **Artifactory Registry** creado en la cuenta de **GCP** con el siguiente comando:
@@ -895,6 +899,8 @@ docker build --platform=linux/amd64 -t us-central1-docker.pkg.dev/uniandes-nativ
 docker push us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/influencers:1.0
 docker push us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/campanas:1.0
 docker push us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/contratos:1.0
+docker push us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/saga:1.0
+docker push us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/bff:1.0
 ```
 
 4. Desplegar los servicio en Cloud Run
@@ -908,7 +914,7 @@ gcloud run deploy influencers-ms \
     --memory 16Gi \
     --cpu 4 \
     --min-instances 1 \
-    --max-instances 1
+    --max-instances 10
 ```
 
 Microservicio Campañas
@@ -920,7 +926,7 @@ gcloud run deploy campanas-ms \
     --memory 16Gi \
     --cpu 4 \
     --min-instances 1 \
-    --max-instances 1
+    --max-instances 10
 ```
 
 Microservicio Contratos
@@ -932,7 +938,31 @@ gcloud run deploy contratos-ms \
     --memory 16Gi \
     --cpu 4 \
     --min-instances 1 \
-    --max-instances 1
+    --max-instances 10
+```
+
+Saga
+```bash
+gcloud run deploy saga-ms \
+    --image us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/saga:1.0 \
+    --region us-central1 \
+    --set-env-vars DATABASE_URL="postgresql://postgres:passwordDB10@IP_DB:5432/postgres",PULSAR_ADDRESS="IP_VM",RECREATE_DB=false\
+    --memory 16Gi \
+    --cpu 4 \
+    --min-instances 1 \
+    --max-instances 10
+```
+
+BFF
+```bash
+gcloud run deploy bff-ms \
+    --image us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/bff:1.0 \
+    --region us-central1 \
+    --set-env-vars DATABASE_URL="postgresql://postgres:passwordDB10@IP_DB:5432/postgres",PULSAR_ADDRESS="IP_VM",RECREATE_DB=false\
+    --memory 16Gi \
+    --cpu 4 \
+    --min-instances 1 \
+    --max-instances 10
 ```
 
 ## Scripts envio eventos pulsar

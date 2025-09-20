@@ -5,7 +5,7 @@
 		"description": "Collection para interactuar con el microservicio BFF de Alpes Partners",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "2750860",
-		"_collection_link": "https://timecontrol.postman.co/workspace/e4bf613c-84ca-4624-ad9c-4c8c0259e211/collection/2750860-e72ed7f7-7bee-410a-abbd-85336eb27ef1?action=share&source=collection_link&creator=2750860"
+		"_collection_link": "https://timecontrol.postman.co/workspace/TCT~e4bf613c-84ca-4624-ad9c-4c8c0259e211/collection/2750860-e72ed7f7-7bee-410a-abbd-85336eb27ef1?action=share&source=collection_link&creator=2750860"
 	},
 	"item": [
 		{
@@ -31,12 +31,10 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "http://localhost:8004/health",
-							"protocol": "http",
+							"raw": "{{base_url}}/health",
 							"host": [
-								"localhost"
+								"{{base_url}}"
 							],
-							"port": "8004",
 							"path": [
 								"health"
 							]
@@ -106,6 +104,38 @@
 		},
 		{
 			"name": "Crear Influencer - Exitoso",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"// Generar un número aleatorio",
+							"let randomNum = Math.floor(Math.random() * 100000);",
+							"",
+							"// Nombres base",
+							"let firstNames = [\"María\", \"Laura\", \"Carlos\", \"Andrés\", \"Sofía\", \"Pedro\", \"Camila\", \"Juan\"];",
+							"let lastNames = [\"García\", \"López\", \"Martínez\", \"Rodríguez\", \"Pérez\", \"Sánchez\", \"Torres\", \"Ramírez\"];",
+							"",
+							"// Elegir aleatoriamente nombre y apellido",
+							"let firstName = firstNames[Math.floor(Math.random() * firstNames.length)];",
+							"let lastName = lastNames[Math.floor(Math.random() * lastNames.length)];",
+							"",
+							"// Crear nombre completo",
+							"let fullName = `${firstName} ${lastName}`;",
+							"",
+							"// Crear email único",
+							"let email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${randomNum}@example.com`;",
+							"",
+							"// Guardar variables en el entorno de Postman",
+							"pm.environment.set(\"nombre\", fullName);",
+							"pm.environment.set(\"email\", email);",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
 			"request": {
 				"method": "POST",
 				"header": [
@@ -116,7 +146,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n  \"id_influencer\": \"inf-002\",\n  \"nombre\": \"María García\",\n  \"email\": \"maria.garcia@example.com\",\n  \"categorias\": [\"lifestyle\", \"moda\", \"belleza\"],\n  \"plataformas\": [\"instagram\", \"youtube\", \"tiktok\"],\n  \"descripcion\": \"Influencer de lifestyle y moda\",\n  \"biografia\": \"Apasionada por la moda y el estilo de vida saludable\",\n  \"sitio_web\": \"https://mariagarcia.com\",\n  \"telefono\": \"+1234567890\"\n}"
+					"raw": "{\n  \"id_influencer\": \"inf-002\",\n  \"nombre\": \"{{nombre}}\",\n  \"email\": \"{{email}}\",\n  \"categorias\": [\"lifestyle\", \"moda\", \"belleza\"],\n  \"plataformas\": [\"instagram\", \"youtube\", \"tiktok\"],\n  \"descripcion\": \"Influencer de lifestyle y moda\",\n  \"biografia\": \"Apasionada por la moda y el estilo de vida saludable\",\n  \"sitio_web\": \"https://mariagarcia.com\",\n  \"telefono\": \"+1234567890\"\n}"
 				},
 				"url": {
 					"raw": "{{base_url}}/influencers",
@@ -145,12 +175,10 @@
 							"raw": "{\n  \"id_influencer\": \"inf-002\",\n  \"nombre\": \"María García\",\n  \"email\": \"maria.garcia@example.com\",\n  \"categorias\": [\"lifestyle\", \"moda\", \"belleza\"],\n  \"plataformas\": [\"instagram\", \"youtube\", \"tiktok\"],\n  \"descripcion\": \"Influencer de lifestyle y moda\",\n  \"biografia\": \"Apasionada por la moda y el estilo de vida saludable\",\n  \"sitio_web\": \"https://mariagarcia.com\",\n  \"telefono\": \"+1234567890\"\n}"
 						},
 						"url": {
-							"raw": "http://localhost:8004/influencers",
-							"protocol": "http",
+							"raw": "{{base_url}}/influencers",
 							"host": [
-								"localhost"
+								"{{base_url}}"
 							],
-							"port": "8004",
 							"path": [
 								"influencers"
 							]
@@ -211,12 +239,10 @@
 							"raw": "{\n  \"id_influencer\": \"inf-003\",\n  \"nombre\": \"Carlos López\"\n  // Faltan campos requeridos: email y categorias\n}"
 						},
 						"url": {
-							"raw": "http://localhost:8004/influencers",
-							"protocol": "http",
+							"raw": "{{base_url}}/influencers",
 							"host": [
-								"localhost"
+								"{{base_url}}"
 							],
-							"port": "8004",
 							"path": [
 								"influencers"
 							]
