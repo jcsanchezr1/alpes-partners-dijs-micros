@@ -872,7 +872,42 @@ Nota: Si generar error de permisos correr `chmod +x startup-script.sh`
 
 3. Antes de desplegar los microservicios, cambiar la variable de entorno `PULSAR_ADDRESS` por la IP externa de la VM
 
-### Despliegue Microservicios en Cloud Run
+### Configuración de VPC Connector
+
+Para conectar de forma segura los microservicios de Cloud Run con Pulsar en la VM, se recomienda usar un Serverless VPC Connector. Esto permite que los servicios se comuniquen usando la red interna de GCP.
+
+#### Configurar VPC Connector
+
+**1. Creacion SubNet**
+```bash
+gcloud compute networks subnets create pulsar-connector-subnet \
+    --network=default \
+    --range=10.8.0.0/28 \
+    --region=us-central1 \
+    --description="Subnet para VPC Connector de Pulsar"
+```
+
+**2. Crear Serverless VPC Connector**
+```bash
+gcloud compute networks vpc-access connectors create pulsar-vpc-connector \
+    --region=us-central1 \
+    --subnet=pulsar-connector-subnet \
+    --subnet-project=uniandes-native-202511 \
+    --min-instances=2 \
+    --max-instances=10 \
+    --machine-type=e2-micro
+```
+
+**3. Crear regla de firewall para permitir tráfico desde VPC Connector**
+```bash
+gcloud compute firewall-rules create allow-vpc-connector-to-pulsar \
+    --allow tcp:6650,tcp:8080,tcp:5432 \
+    --source-ranges 10.8.0.0/28 \
+    --target-tags pulsar-server \
+    --description "Allow VPC Connector traffic to Pulsar VM"
+```
+
+### Despliegue Microservicios en Cloud Run (Método Tradicional)
 
 1. Crear la Base de datos en al **Cloud SQL** en la cuenta de **GCP**.
 
@@ -911,11 +946,13 @@ Microservicio Influencers
 gcloud run deploy influencers-ms \
     --image us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/influencers:1.0 \
     --region us-central1 \
-    --set-env-vars DATABASE_URL="postgresql://postgres:passwordDB10@IP_DB:5432/postgres",PULSAR_ADDRESS="IP_VM",RECREATE_DB=false\
-    --memory 16Gi \
-    --cpu 4 \
+    --set-env-vars DATABASE_URL="postgresql://postgres:Postgres-1@IP_DB:5432/postgres",PULSAR_ADDRESS=IP_PULSAR_INTERNA,RECREATE_DB=false\
+    --vpc-connector pulsar-vpc-connector \
+    --memory 32Gi \
+    --cpu 8 \
     --min-instances 1 \
-    --max-instances 10
+    --max-instances 10 \
+    --execution-environment gen2
 ```
 
 Microservicio Campañas
@@ -923,11 +960,13 @@ Microservicio Campañas
 gcloud run deploy campanas-ms \
     --image us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/campanas:1.0 \
     --region us-central1 \
-    --set-env-vars DATABASE_URL="postgresql://postgres:passwordDB10@IP_DB:5432/postgres",PULSAR_ADDRESS="IP_VM",RECREATE_DB=false\
-    --memory 16Gi \
-    --cpu 4 \
+    --set-env-vars DATABASE_URL="postgresql://postgres:Postgres-1@IP_DB:5432/postgres",PULSAR_ADDRESS=IP_PULSAR_INTERNA,RECREATE_DB=false\
+    --vpc-connector pulsar-vpc-connector \
+    --memory 32Gi \
+    --cpu 8 \
     --min-instances 1 \
-    --max-instances 10
+    --max-instances 10 \
+    --execution-environment gen2
 ```
 
 Microservicio Contratos
@@ -935,11 +974,13 @@ Microservicio Contratos
 gcloud run deploy contratos-ms \
     --image us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/contratos:1.0 \
     --region us-central1 \
-    --set-env-vars DATABASE_URL="postgresql://postgres:passwordDB10@IP_DB:5432/postgres",PULSAR_ADDRESS="IP_VM",RECREATE_DB=false\
-    --memory 16Gi \
-    --cpu 4 \
+    --set-env-vars DATABASE_URL="postgresql://postgres:Postgres-1@IP_DB:5432/postgres",PULSAR_ADDRESS=IP_PULSAR_INTERNA,RECREATE_DB=false\
+    --vpc-connector pulsar-vpc-connector \
+    --memory 32Gi \
+    --cpu 8 \
     --min-instances 1 \
-    --max-instances 10
+    --max-instances 10 \
+    --execution-environment gen2
 ```
 
 Saga
@@ -947,11 +988,13 @@ Saga
 gcloud run deploy saga-ms \
     --image us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/saga:1.0 \
     --region us-central1 \
-    --set-env-vars DATABASE_URL="postgresql://postgres:passwordDB10@IP_DB:5432/postgres",PULSAR_ADDRESS="IP_VM",RECREATE_DB=false\
-    --memory 16Gi \
-    --cpu 4 \
+    --set-env-vars DATABASE_URL="postgresql://postgres:Postgres-1@IP_DB:5432/postgres",PULSAR_ADDRESS=IP_PULSAR_INTERNA,RECREATE_DB=false\
+    --vpc-connector pulsar-vpc-connector \
+    --memory 32Gi \
+    --cpu 8 \
     --min-instances 1 \
-    --max-instances 10
+    --max-instances 10 \
+    --execution-environment gen2
 ```
 
 BFF
@@ -959,11 +1002,13 @@ BFF
 gcloud run deploy bff-ms \
     --image us-central1-docker.pkg.dev/uniandes-native-202511/dijis-alpes-partners/bff:1.0 \
     --region us-central1 \
-    --set-env-vars DATABASE_URL="postgresql://postgres:passwordDB10@IP_DB:5432/postgres",PULSAR_ADDRESS="IP_VM",RECREATE_DB=false\
-    --memory 16Gi \
-    --cpu 4 \
+    --set-env-vars DATABASE_URL="postgresql://postgres:Postgres-1@IP_DB:5432/postgres",PULSAR_ADDRESS=IP_PULSAR_INTERNA,RECREATE_DB=false\
+    --vpc-connector pulsar-vpc-connector \
+    --memory 32Gi \
+    --cpu 8 \
     --min-instances 1 \
-    --max-instances 10
+    --max-instances 10 \
+    --execution-environment gen2
 ```
 
 ## Scripts envio eventos pulsar
